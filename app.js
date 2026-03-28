@@ -43,6 +43,8 @@ let recognition;
 let selectedVoice = null;
 let hasProcessedFinalResult = false; // Track if we've already processed a final result in current session
 let audioContextUnlocked = false; // Track if audio context has been unlocked for TTS
+let lastInterimText = ''; // Store last interim text for Samsung/Android fallback
+let silenceTimeout = null; // Timeout for silence detection
 
 const elements = {
   headerTitle: document.querySelector('.header__title'),
@@ -333,6 +335,11 @@ function initSpeechRecognition() {
   recognition.onstart = () => {
     STATE.isListening = true;
     hasProcessedFinalResult = false; // Reset for new recognition session
+    lastInterimText = ''; // Reset interim text
+    if (silenceTimeout) {
+      clearTimeout(silenceTimeout);
+      silenceTimeout = null;
+    }
     setMicState('listening');
     elements.transcriptionIndicator.textContent = '음성 인식 중...';
   };
@@ -354,11 +361,46 @@ function initSpeechRecognition() {
     elements.transcription.textContent = final || interim;
     elements.transcription.classList.toggle('transcription--interim', !!interim && !final);
 
+    // Store last interim text for fallback
+    if (interim) {
+      lastInterimText = interim.trim();
+    }
+
+    // Clear existing timeout and set new one for silence detection
+    if (silenceTimeout) {
+      clearTimeout(silenceTimeout);
+    }
+    silenceTimeout = setTimeout(() => {
+      if (lastInterimText && !hasProcessedFinalResult) {
+        // Samsung/Android fallback: send last interim text after 1500ms silence
+        hasProcessedFinalResult = true;
+        processUserInput(lastInterimText);
+        elements.transcription.textContent = '';
+        lastInterimText = '';
+        
+        // Restart recognition after processing
+        setTimeout(() => {
+          if (!STATE.isProcessing) {
+            startListening();
+          }
+        }, 100);
+      }
+    }, 1500);
+
     // Only process final results, and only once per recognition session
     if (final && !hasProcessedFinalResult) {
       hasProcessedFinalResult = true;
+      clearTimeout(silenceTimeout); // Clear the fallback timeout
       processUserInput(final.trim());
       elements.transcription.textContent = '';
+      lastInterimText = '';
+      
+      // Restart recognition after processing
+      setTimeout(() => {
+        if (!STATE.isProcessing) {
+          startListening();
+        }
+      }, 100);
     }
   };
 
@@ -376,6 +418,21 @@ function initSpeechRecognition() {
 
   recognition.onend = () => {
     STATE.isListening = false;
+    
+    // Clear any pending silence timeout
+    if (silenceTimeout) {
+      clearTimeout(silenceTimeout);
+      silenceTimeout = null;
+    }
+    
+    // Samsung/Android fallback: if we have interim text that wasn't processed, send it
+    if (lastInterimText && !hasProcessedFinalResult) {
+      hasProcessedFinalResult = true;
+      processUserInput(lastInterimText);
+      elements.transcription.textContent = '';
+      lastInterimText = '';
+    }
+    
     if (STATE.isProcessing) {
       // Keep in processing state until API response.
       return;
@@ -396,6 +453,13 @@ function startListening() {
 
 function stopListening() {
   if (!recognition || !STATE.isListening) return;
+  
+  // Clear any pending silence timeout
+  if (silenceTimeout) {
+    clearTimeout(silenceTimeout);
+    silenceTimeout = null;
+  }
+  
   recognition.stop();
 }
 
