@@ -46,6 +46,42 @@ let audioContextUnlocked = false; // Track if audio context has been unlocked fo
 let lastInterimText = ''; // Store last interim text for Samsung/Android fallback
 let silenceTimeout = null; // Timeout for silence detection
 
+//#region Debug Panel
+function toggleDebugPanel() {
+  const panel = document.getElementById('debugPanel');
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+function addDebugEntry(event, details = '') {
+  const debugContent = document.getElementById('debugContent');
+  if (!debugContent) return;
+
+  const timestamp = new Date().toLocaleTimeString('fr-FR', {
+    hour12: false,
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    fractionalSecondDigits: 1
+  });
+
+  const entry = document.createElement('div');
+  entry.className = 'debug-panel__entry';
+  entry.innerHTML = `
+    <span class="debug-panel__timestamp">[${timestamp}]</span>
+    <strong>${event}:</strong> ${details}
+  `;
+
+  debugContent.appendChild(entry);
+  debugContent.scrollTop = debugContent.scrollHeight;
+
+  // Keep only last 20 entries
+  while (debugContent.children.length > 20) {
+    debugContent.removeChild(debugContent.firstChild);
+  }
+}
+
+//#endregion
+
 const elements = {
   headerTitle: document.querySelector('.header__title'),
   headerUnit: document.querySelector('.header__unit'),
@@ -333,6 +369,7 @@ function initSpeechRecognition() {
   recognition.interimResults = true;
 
   recognition.onstart = () => {
+    addDebugEntry('onstart', 'micro démarré');
     STATE.isListening = true;
     hasProcessedFinalResult = false; // Reset for new recognition session
     lastInterimText = ''; // Reset interim text
@@ -358,6 +395,11 @@ function initSpeechRecognition() {
       }
     }
 
+    // Log result details
+    const resultText = final || interim;
+    const isFinal = final ? 'true' : 'false';
+    addDebugEntry('onresult', `isFinal: ${isFinal} — texte: "${resultText}"`);
+
     elements.transcription.textContent = final || interim;
     elements.transcription.classList.toggle('transcription--interim', !!interim && !final);
 
@@ -373,6 +415,7 @@ function initSpeechRecognition() {
     silenceTimeout = setTimeout(() => {
       if (lastInterimText && !hasProcessedFinalResult) {
         // Samsung/Android fallback: send last interim text after 1500ms silence
+        addDebugEntry('timeout', `envoi automatique après 1500ms: "${lastInterimText}"`);
         hasProcessedFinalResult = true;
         processUserInput(lastInterimText);
         elements.transcription.textContent = '';
@@ -405,11 +448,12 @@ function initSpeechRecognition() {
   };
 
   recognition.onerror = (event) => {
+    addDebugEntry('onerror', `erreur: ${event.error}`);
     console.error('Speech recognition error', event.error);
     if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
       showAlert('error', '마이크 접근이 거부되었습니다. 브라우저 설정을 확인하세요.');
       stopListening();
-      stateResetMic();
+      setMicState('idle');
       return;
     }
 
@@ -417,6 +461,7 @@ function initSpeechRecognition() {
   };
 
   recognition.onend = () => {
+    addDebugEntry('onend', 'micro arrêté');
     STATE.isListening = false;
     
     // Clear any pending silence timeout
@@ -427,6 +472,7 @@ function initSpeechRecognition() {
     
     // Samsung/Android fallback: if we have interim text that wasn't processed, send it
     if (lastInterimText && !hasProcessedFinalResult) {
+      addDebugEntry('onend', `envoi texte restant: "${lastInterimText}"`);
       hasProcessedFinalResult = true;
       processUserInput(lastInterimText);
       elements.transcription.textContent = '';
@@ -577,6 +623,20 @@ function initApp() {
 
   // Re-initialize voices if they're loaded later
   window.speechSynthesis.addEventListener('voiceschanged', initVoice);
+
+  // Make debug functions globally available
+  window.toggleDebugPanel = toggleDebugPanel;
+
+  // Debug keyboard shortcut (Ctrl+Shift+D)
+  document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+      e.preventDefault();
+      toggleDebugPanel();
+    }
+  });
+
+  // Initial debug log
+  addDebugEntry('init', 'Speech API Debug initialisé (Ctrl+Shift+D pour afficher/masquer)');
 
   // Register DOM events
   elements.micButton.addEventListener('click', toggleListening);

@@ -52,6 +52,58 @@ input, button, textarea, select {
   overflow: hidden;
 }
 
+/* Debug Panel */
+.debug-panel {
+  background-color: #fff3cd;
+  border: 2px solid #ffc107;
+  border-radius: 8px;
+  margin: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+  font-size: 11px;
+  font-family: 'Courier New', monospace;
+}
+
+.debug-panel__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 8px;
+  background-color: #ffc107;
+  font-weight: bold;
+  font-size: 12px;
+}
+
+.debug-panel__close {
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.debug-panel__content {
+  padding: 4px 8px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.debug-panel__entry {
+  margin-bottom: 2px;
+  padding: 2px 0;
+  border-bottom: 1px solid #ffeaa7;
+}
+
+.debug-panel__timestamp {
+  color: #666;
+  font-size: 10px;
+}
+
 /* Header — minimal, context only */
 .header {
   padding: 16px 16px 12px;

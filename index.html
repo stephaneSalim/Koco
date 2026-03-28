@@ -8,6 +8,14 @@
 </head>
 <body>
   <div id="app">
+    <div class="debug-panel" id="debugPanel" style="display: none;">
+      <div class="debug-panel__header">
+        <span>🔧 Speech API Debug</span>
+        <button class="debug-panel__close" onclick="toggleDebugPanel()">×</button>
+      </div>
+      <div class="debug-panel__content" id="debugContent"></div>
+    </div>
+
     <header class="header">
       <div class="header__title">KoCo</div>
       <div class="header__unit"></div>
