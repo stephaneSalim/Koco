@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>KoCo - Korean Conversation Companion</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="header">
+      <div class="header__title">KoCo</div>
+      <div class="header__unit"></div>
+      <div class="header__mode"></div>
+      <button class="tts-toggle" type="button" aria-label="음성 합성" title="음성 합성 켜기/끄기">
+        <span class="tts-toggle__icon">🔊</span>
+      </button>
+    </header>
+
+    <main class="main main--with-tabs">
+      <div class="conversation"></div>
+
+      <div class="transcription-panel">
+        <div class="transcription" aria-live="polite">말하기 대기...</div>
+        <div class="transcription__indicator"></div>
+      </div>
+
+      <div class="fluency-bar">
+        <div class="fluency-bar__fill" style="width: 25%;"></div>
+      </div>
+      <div class="fluency-badge fluency-badge--low">유창성: 짧음</div>
+
+      <div class="typing-indicator" style="display:none;">
+        <div class="typing-indicator__dot"></div>
+        <div class="typing-indicator__dot"></div>
+        <div class="typing-indicator__dot"></div>
+      </div>
+
+      <div class="alert-area"></div>
+
+      <div class="mic-container">
+        <button class="mic-button" type="button">
+          <span class="mic-button__icon">🎙</span>
+        </button>
+        <div class="mic-status">마이크 시작</div>
+      </div>
+
+      <button class="next-question-btn" type="button" style="display:none;">다음 질문</button>
+    </main>
+
+    <nav class="nav-tabs">
+      <button class="nav-tab active" data-mode="freeChat" type="button">
+        <span class="nav-tab__icon">💬</span>
+        <span class="nav-tab__label">자유 대화</span>
+      </button>
+      <button class="nav-tab" data-mode="debate" type="button">
+        <span class="nav-tab__icon">⚖️</span>
+        <span class="nav-tab__label">토론</span>
+      </button>
+      <button class="nav-tab" data-mode="speaking" type="button">
+        <span class="nav-tab__icon">🗣️</span>
+        <span class="nav-tab__label">말하기 시험</span>
+      </button>
+      <button class="nav-tab" data-mode="speedDrill" type="button">
+        <span class="nav-tab__icon">⚡</span>
+        <span class="nav-tab__label">속도 드릴</span>
+      </button>
+    </nav>
+
+    <div class="modal-overlay modal-overlay--hidden" aria-hidden="true">
+      <div class="modal" role="dialog" aria-modal="true" aria-label="Anthropic API 키 입력">
+        <div class="modal__title">API 키 입력</div>
+        <div class="modal__description">Claude Claude Sonnet 4 API 키를 입력해주세요. 이 키는 로컬에만 저장됩니다.</div>
+        <div class="modal__warning">키가 없으면 대화 기능을 사용할 수 없습니다.</div>
+        <input class="modal__input" type="text" placeholder="sk-ant-..." aria-label="API 키" />
+        <div class="modal__buttons">
+          <button class="modal__button modal__button--primary" type="button">저장</button>
+          <button class="modal__button modal__button--secondary" type="button">취소</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="data.js"></script>
+  <script src="api.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
