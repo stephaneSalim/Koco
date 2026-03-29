@@ -46,11 +46,31 @@
 
       <div class="alert-area"></div>
 
-      <div class="mic-container">
-        <button class="mic-button" type="button">
-          <span class="mic-button__icon">🎙</span>
-        </button>
-        <div class="mic-status">마이크 시작</div>
+      <div class="input-container">
+        <div class="input-mode-toggle">
+          <button class="input-mode-btn active" data-mode="voice" type="button" aria-label="음성 입력">
+            <span class="input-mode-icon">🎙</span>
+          </button>
+          <button class="input-mode-btn" data-mode="text" type="button" aria-label="텍스트 입력">
+            <span class="input-mode-icon">⌨️</span>
+          </button>
+        </div>
+
+        <div class="input-area input-area--voice active">
+          <div class="mic-container">
+            <button class="mic-button" type="button">
+              <span class="mic-button__icon">🎙</span>
+            </button>
+            <div class="mic-status">마이크 시작</div>
+          </div>
+        </div>
+
+        <div class="input-area input-area--text">
+          <div class="text-input-container">
+            <textarea class="text-input" placeholder="여기에 한국어로 입력하세요..." rows="2" maxlength="500"></textarea>
+            <button class="text-send-btn" type="button">전송</button>
+          </div>
+        </div>
       </div>
 
       <button class="next-question-btn" type="button" style="display:none;">다음 질문</button>

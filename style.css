@@ -428,6 +428,109 @@ input, button, textarea, select {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   INPUT MODE TOGGLE & CONTAINER
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.input-container {
+  position: fixed;
+  bottom: 72px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  flex-shrink: 0;
+  width: 100%;
+  max-width: 400px;
+}
+
+.input-mode-toggle {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.input-mode-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid #ddd;
+  background-color: #fff;
+  color: #666;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.input-mode-btn.active {
+  border-color: #4a90e2;
+  background-color: #e3f0ff;
+  color: #4a90e2;
+}
+
+.input-mode-btn:active {
+  transform: scale(0.95);
+}
+
+.input-area {
+  display: none;
+}
+
+.input-area.active {
+  display: block;
+}
+
+.text-input-container {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.text-input {
+  flex: 1;
+  padding: 12px 14px;
+  border: 2px solid #ddd;
+  border-radius: 20px;
+  font-size: 16px;
+  font-family: inherit;
+  line-height: 1.4;
+  resize: none;
+  outline: none;
+  transition: border-color 0.2s ease;
+  background-color: #fff;
+}
+
+.text-input:focus {
+  border-color: #4a90e2;
+}
+
+.text-send-btn {
+  padding: 12px 20px;
+  border: none;
+  border-radius: 20px;
+  background-color: #4a90e2;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.text-send-btn:active {
+  transform: scale(0.95);
+  background-color: #357abd;
+}
+
+.text-send-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    BOTTOM NAVIGATION TABS
    ═══════════════════════════════════════════════════════════════════════════ */
 

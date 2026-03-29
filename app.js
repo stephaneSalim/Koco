@@ -28,7 +28,8 @@ const STORAGE_KEYS = {
   progress: 'koco_progress',
   fluencySessions: 'koco_fluency_sessions',
   apiKey: 'anthropic_api_key',
-  ttsEnabled: 'koco_tts_enabled'
+  ttsEnabled: 'koco_tts_enabled',
+  inputMode: 'koco_input_mode'
 };
 
 const MODE_INFO = {
@@ -87,6 +88,11 @@ const elements = {
   headerUnit: document.querySelector('.header__unit'),
   headerMode: document.querySelector('.header__mode'),
   ttsToggle: document.querySelector('.tts-toggle'),
+  inputModeBtns: document.querySelectorAll('.input-mode-btn'),
+  inputAreaVoice: document.querySelector('.input-area--voice'),
+  inputAreaText: document.querySelector('.input-area--text'),
+  textInput: document.querySelector('.text-input'),
+  textSendBtn: document.querySelector('.text-send-btn'),
   conversation: document.querySelector('.conversation'),
   transcription: document.querySelector('.transcription'),
   transcriptionIndicator: document.querySelector('.transcription__indicator'),
@@ -221,6 +227,68 @@ function updateTtsButton() {
     elements.ttsToggle.classList.remove('tts-toggle--active');
     elements.ttsToggle.setAttribute('title', '음성 합성 꺼짐');
   }
+}
+
+//#endregion
+
+//#region Input Mode Management
+function getInputMode() {
+  return localStorage.getItem(STORAGE_KEYS.inputMode) || 'voice';
+}
+
+function setInputMode(mode) {
+  localStorage.setItem(STORAGE_KEYS.inputMode, mode);
+  updateInputMode();
+}
+
+function updateInputMode() {
+  const currentMode = getInputMode();
+  
+  // Update button states
+  elements.inputModeBtns.forEach(btn => {
+    if (btn.dataset.mode === currentMode) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+  
+  // Update input areas
+  if (currentMode === 'voice') {
+    elements.inputAreaVoice.classList.add('active');
+    elements.inputAreaText.classList.remove('active');
+    // Reset mic state when switching to voice mode
+    if (!STATE.isProcessing) {
+      setMicState('idle');
+    }
+  } else {
+    elements.inputAreaVoice.classList.remove('active');
+    elements.inputAreaText.classList.add('active');
+    // Stop any ongoing voice recognition when switching to text mode
+    if (STATE.isListening) {
+      stopListening();
+    }
+  }
+}
+
+function sendTextInput() {
+  const text = elements.textInput.value.trim();
+  if (!text || STATE.isProcessing) return;
+  
+  // Disable send button during processing
+  elements.textSendBtn.disabled = true;
+  
+  // Send to API (same logic as voice input)
+  processUserInput(text);
+  
+  // Clear input
+  elements.textInput.value = '';
+  elements.textInput.focus();
+  
+  // Re-enable send button after processing starts
+  setTimeout(() => {
+    elements.textSendBtn.disabled = false;
+  }, 100);
 }
 
 //#endregion
@@ -539,7 +607,9 @@ async function processUserInput(text) {
   const systemPrompt = generateSystemPrompt(context, STATE.mode);
 
   STATE.isProcessing = true;
-  setMicState('processing');
+  if (getInputMode() === 'voice') {
+    setMicState('processing');
+  }
   showTypingIndicator(true);
 
   try {
@@ -581,7 +651,12 @@ async function processUserInput(text) {
   } finally {
     STATE.isProcessing = false;
     showTypingIndicator(false);
-    setMicState('idle');
+    if (getInputMode() === 'voice') {
+      setMicState('idle');
+    } else {
+      // Re-enable text send button
+      elements.textSendBtn.disabled = false;
+    }
   }
 }
 
@@ -638,10 +713,27 @@ function initApp() {
   // Initial debug log
   addDebugEntry('init', 'Speech API Debug initialisé (Ctrl+Shift+D pour afficher/masquer)');
 
+  // Initialize input mode
+  updateInputMode();
+
   // Register DOM events
   elements.micButton.addEventListener('click', toggleListening);
   elements.nextQuestionButton.addEventListener('click', () => nextQuestion());
   elements.ttsToggle.addEventListener('click', () => setTtsEnabled(!isTtsEnabled()));
+  
+  // Input mode events
+  elements.inputModeBtns.forEach(btn => {
+    btn.addEventListener('click', () => setInputMode(btn.dataset.mode));
+  });
+  
+  elements.textSendBtn.addEventListener('click', sendTextInput);
+  
+  elements.textInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendTextInput();
+    }
+  });
 
   elements.navTabs.forEach(tab => {
     tab.addEventListener('click', () => updateMode(tab.dataset.mode));
