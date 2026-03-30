@@ -8,6 +8,8 @@
 </head>
 <body>
   <div id="app">
+
+    <!-- DEBUG PANEL (development only) -->
     <div class="debug-panel" id="debugPanel" style="display: none;">
       <div class="debug-panel__header">
         <span>🔧 Speech API Debug</span>
@@ -16,89 +18,145 @@
       <div class="debug-panel__content" id="debugContent"></div>
     </div>
 
+    <!-- ═════════════════════════════════════════
+         HEADER — Lesson Title + Mode + TTS Toggle
+         ═════════════════════════════════════════ -->
     <header class="header">
-      <div class="header__title">KoCo</div>
-      <div class="header__unit"></div>
-      <div class="header__mode"></div>
-      <button class="tts-toggle" type="button" aria-label="음성 합성" title="음성 합성 켜기/끄기">
-        <span class="tts-toggle__icon">🔊</span>
-      </button>
+      <div class="header__content">
+        <div class="header__branding">KoCo</div>
+        <div class="header__lesson-info">
+          <div class="header__lesson-title" id="headerLessonTitle">KoCo</div>
+          <div class="header__lesson-theme" id="headerLessonTheme"></div>
+        </div>
+      </div>
+      <div class="header__actions">
+        <span class="header__mode-badge" id="headerModeBadge"></span>
+        <button class="tts-toggle" type="button" aria-label="음성 합성">
+          <span class="tts-toggle__icon">🔊</span>
+        </button>
+      </div>
     </header>
 
-    <main class="main main--with-tabs">
+    <!-- PROGRESS BAR — Visual feedback for lesson progress -->
+    <div class="progress-bar">
+      <div class="progress-bar__fill" id="progressBarFill"></div>
+    </div>
+
+    <!-- ═════════════════════════════════════════
+         LEVEL 1 — UNIT SELECTOR (Scrollable Pills)
+         ═════════════════════════════════════════ -->
+    <section class="unit-selector" aria-label="단원 선택">
+      <div class="unit-selector__scroller" id="unitScroller">
+        <!-- Pills generated dynamically by app.js -->
+      </div>
+    </section>
+
+    <!-- ═════════════════════════════════════════
+         LEVEL 2 — LESSON SELECTOR (Scrollable Cards)
+         ═════════════════════════════════════════ -->
+    <section class="lesson-selector" aria-label="레슨 선택">
+      <div class="lesson-selector__scroller" id="lessonScroller">
+        <!-- Cards generated dynamically by app.js -->
+      </div>
+    </section>
+
+    <!-- ═════════════════════════════════════════
+         MAIN CONTENT AREA — Conversation + Input
+         ═════════════════════════════════════════ -->
+    <main class="main">
+
+      <!-- Conversation Messages -->
       <div class="conversation"></div>
 
+      <!-- Transcription Panel (voice recognition) -->
       <div class="transcription-panel">
         <div class="transcription" aria-live="polite">말하기 대기...</div>
         <div class="transcription__indicator"></div>
       </div>
 
-      <div class="fluency-bar">
-        <div class="fluency-bar__fill" style="width: 25%;"></div>
-      </div>
-      <div class="fluency-badge fluency-badge--low">유창성: 짧음</div>
+      <!-- Fluency Indicator (hidden by default) -->
+      <div class="fluency-badge fluency-badge--low" style="display: none;"><span id="fluencyText">유창성: 짧음</span></div>
 
+      <!-- Typing Indicator (for assistant's response) -->
       <div class="typing-indicator" style="display:none;">
         <div class="typing-indicator__dot"></div>
         <div class="typing-indicator__dot"></div>
         <div class="typing-indicator__dot"></div>
       </div>
 
+      <!-- Alert Messages (errors, success) -->
       <div class="alert-area"></div>
 
+      <!-- INPUT CONTAINER —— Voice or Text Mode Selection -->
       <div class="input-container">
+
+        <!-- Mode Toggle: Voice vs Text -->
         <div class="input-mode-toggle">
-          <button class="input-mode-btn active" data-mode="voice" type="button" aria-label="음성 입력">
+          <button class="input-mode-btn active" data-mode="voice" type="button" aria-label="음성 입력 모드">
             <span class="input-mode-icon">🎙</span>
           </button>
-          <button class="input-mode-btn" data-mode="text" type="button" aria-label="텍스트 입력">
+          <button class="input-mode-btn" data-mode="text" type="button" aria-label="텍스트 입력 모드">
             <span class="input-mode-icon">⌨️</span>
           </button>
         </div>
 
+        <!-- Voice Input Area -->
         <div class="input-area input-area--voice active">
           <div class="mic-container">
-            <button class="mic-button" type="button">
+            <button class="mic-button" type="button" aria-label="마이크 시작">
               <span class="mic-button__icon">🎙</span>
             </button>
             <div class="mic-status">마이크 시작</div>
           </div>
         </div>
 
+        <!-- Text Input Area -->
         <div class="input-area input-area--text">
           <div class="text-input-container">
-            <textarea class="text-input" placeholder="여기에 한국어로 입력하세요..." rows="2" maxlength="500"></textarea>
+            <textarea 
+              class="text-input" 
+              placeholder="여기에 한국어로 입력하세요..." 
+              rows="2" 
+              maxlength="500"
+              aria-label="텍스트 입력"></textarea>
             <button class="text-send-btn" type="button">전송</button>
           </div>
         </div>
+
       </div>
 
+      <!-- Next Question Button (visible in certain modes) -->
       <button class="next-question-btn" type="button" style="display:none;">다음 질문</button>
+
     </main>
 
-    <nav class="nav-tabs">
-      <button class="nav-tab active" data-mode="freeChat" type="button">
+    <!-- ═════════════════════════════════════════
+         LEVEL 3 — MODE TABS (Fixed Bottom)
+         ═════════════════════════════════════════ -->
+    <nav class="nav-tabs" aria-label="학습 모드 선택">
+      <button class="nav-tab active" data-mode="freeChat" type="button" aria-label="자유 대화 모드">
         <span class="nav-tab__icon">💬</span>
         <span class="nav-tab__label">자유 대화</span>
       </button>
-      <button class="nav-tab" data-mode="debate" type="button">
+      <button class="nav-tab" data-mode="debate" type="button" aria-label="토론 모드">
         <span class="nav-tab__icon">⚖️</span>
         <span class="nav-tab__label">토론</span>
       </button>
-      <button class="nav-tab" data-mode="speaking" type="button">
+      <button class="nav-tab" data-mode="speaking" type="button" aria-label="말하기 시험 모드">
         <span class="nav-tab__icon">🗣️</span>
-        <span class="nav-tab__label">말하기 시험</span>
+        <span class="nav-tab__label">말하기</span>
       </button>
-      <button class="nav-tab" data-mode="speedDrill" type="button">
+      <button class="nav-tab" data-mode="speedDrill" type="button" aria-label="속도 드릴 모드">
         <span class="nav-tab__icon">⚡</span>
-        <span class="nav-tab__label">속도 드릴</span>
+        <span class="nav-tab__label">드릴</span>
       </button>
     </nav>
 
+    <!-- API KEY MODAL —— Appears on first launch if no API key -->
     <div class="modal-overlay modal-overlay--hidden" aria-hidden="true">
       <div class="modal" role="dialog" aria-modal="true" aria-label="Anthropic API 키 입력">
         <div class="modal__title">API 키 입력</div>
-        <div class="modal__description">Claude Claude Sonnet 4 API 키를 입력해주세요. 이 키는 로컬에만 저장됩니다.</div>
+        <div class="modal__description">Claude Sonnet 4 API 키를 입력해주세요. 이 키는 로컬에만 저장됩니다.</div>
         <div class="modal__warning">키가 없으면 대화 기능을 사용할 수 없습니다.</div>
         <input class="modal__input" type="text" placeholder="sk-ant-..." aria-label="API 키" />
         <div class="modal__buttons">
@@ -107,8 +165,10 @@
         </div>
       </div>
     </div>
+
   </div>
 
+  <!-- Scripts (Order matters!) -->
   <script src="data.js"></script>
   <script src="api.js"></script>
   <script src="app.js"></script>
