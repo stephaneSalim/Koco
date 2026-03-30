@@ -259,34 +259,110 @@ const UNITS = {
     }
   },
 
-  // UNIT 1-2: 운동과 건강 (Exercise & Health) — SCAFFOLD
+  // UNIT 1-2: 건강한 신체 (Healthy Body) — FULLY IMPLEMENTED
   unit_1_2: {
     id: "unit_1_2",
-    title: "운동과 건강",
-    subtitle: "Exercise & Health",
-    theme: "Physical activity and wellness",
+    title: "건강한 신체",
+    subtitle: "Healthy Body",
+    theme: "Exercise, posture and healthy habits",
     snu_level: "5A_1-2",
-    
-    vocabulary: [],
-    targetGrammar: ["-는 데(에) 좋다", "-(으)라면 꼽을 수 있다"],
-    
+
+    vocabulary: [
+      { korean: "심장", meaning: "heart" },
+      { korean: "폐", meaning: "lungs" },
+      { korean: "위", meaning: "stomach" },
+      { korean: "장", meaning: "intestines" },
+      { korean: "근육", meaning: "muscles" },
+      { korean: "척추", meaning: "spine" },
+      { korean: "관절", meaning: "joints" },
+      { korean: "체지방을 줄이다", meaning: "reduce body fat" },
+      { korean: "근육량을 늘리다", meaning: "increase muscle mass" },
+      { korean: "체력/유연성/근력/지구력을 기르다", meaning: "build stamina/flexibility/strength/endurance" },
+      { korean: "뭉친 근육을 풀다", meaning: "loosen stiff muscles" },
+      { korean: "바른 자세를 유지하다", meaning: "maintain good posture" },
+      { korean: "숙면을 취하다", meaning: "get deep sleep" },
+      { korean: "심폐 기능이 향상되다", meaning: "improve cardiopulmonary function" },
+      { korean: "목/허리 디스크를 예방하다", meaning: "prevent cervical/lumbar herniation" },
+      { korean: "스트레칭을 하다", meaning: "stretch" },
+      { korean: "유산소 운동을 하다", meaning: "do cardio" },
+      { korean: "근력 운동을 하다", meaning: "do strength training" },
+      { korean: "꾸준히 운동하다", meaning: "exercise regularly" }
+    ],
+
+    targetGrammar: [
+      "-되 (accord + condition)",
+      "-(으)ㄹ뿐더러 (non seulement... mais en plus)"
+    ],
+
     questions: {
       freeChat: [
-        "일주일에 몇 번 운동해요?",
-        "어떤 운동이 가장 효과적이라고 생각해요?",
-        "운동할 때 가장 어려운 점이 뭐예요?"
+        "평소에 어떤 운동을 즐겨 해요?",
+        "건강을 유지하기 위해 어떤 노력을 하고 있어요?",
+        "거북목 증후군을 예방하기 위해 어떤 습관이 중요할까요?",
+        "걷기 운동의 효과에 대해 어떻게 생각해요?",
+        "운동을 꾸준히 하기 어려운 이유가 뭐예요?",
+        "바른 자세를 유지하는 게 왜 중요할까요?"
       ],
       debate: [
-        "아침 운동이 저녁 운동보다 더 좋아요?",
-        "헬스장에 다니는 것이 집에서 하는 운동보다 효과적일까요?"
+        "유산소 운동과 근력 운동 중 어느 것이 더 중요하다고 생각해요?",
+        "현대인들은 운동을 충분히 하고 있다고 생각해요?",
+        "건강을 위해 식단 관리와 운동 중 뭐가 더 효과적일까요?",
+        "헬스장보다 걷기 같은 일상 운동이 더 효과적일 수 있을까요?"
       ],
       speaking: [
-        "선호하는 운동을 소개하고 그 장점을 설명해 보세요."
+        "건강한 생활 습관을 위해 실천하고 있는 것을 소개하고 그 효과를 설명해 보세요.",
+        "거북목 증후군이 무엇인지 설명하고 예방 방법을 이야기해 보세요."
       ],
       speedDrill: [
-        "주로 어떤 운동을 해요?",
-        "운동이 어떻게 도움이 돼요?",
-        "일주일에 얼마나 자주 해요?"
+        "운동하되 어떻게 해야 해요?",
+        "걷기 운동의 효과를 말하라면?",
+        "척추 건강을 위해 뭘 해야 해요?",
+        "근력 운동을 하면 어떤 점이 좋을뿐더러?",
+        "숙면을 취하는 데 좋은 방법을 꼽으라면?",
+        "바른 자세를 유지하되 특히 뭘 조심해야 해요?"
+      ]
+    }
+  },
+
+  // UNIT 1-merged: 건강한 삶 통합 (Health Integration) — FULLY IMPLEMENTED
+  unit_1_merged: {
+    id: "unit_1_merged",
+    title: "건강한 삶 — 통합",
+    subtitle: "1-1 + 1-2 fusionnés",
+    theme: "Alimentation + Corps + Habitudes saines",
+    snu_level: "5A_1_merged",
+
+    targetGrammar: [
+      "-는 데(에) 좋다/도움이 되다",
+      "-(으)라면 꼽을 수 있다",
+      "-되",
+      "-(으)ㄹ뿐더러"
+    ],
+
+    questions: {
+      freeChat: [
+        "건강을 위해 식습관과 운동 습관 중 뭐가 더 중요하다고 생각해요?",
+        "균형 잡힌 식사를 하되 운동도 병행하고 있어요?",
+        "면역력을 키우는 데 좋은 음식과 운동을 같이 소개해 보세요.",
+        "평소 건강 관리를 위해 하는 것 두 가지를 설명해 보세요.",
+        "건강한 생활을 유지하기 어려운 이유가 뭐예요?"
+      ],
+      debate: [
+        "건강에는 음식이 중요할까요, 운동이 중요할까요?",
+        "현대인들의 건강이 예전보다 나빠졌다고 생각해요?",
+        "영양제를 먹는 것이 운동보다 효율적일 수 있을까요?"
+      ],
+      speaking: [
+        "건강한 삶을 위한 나만의 루틴을 소개해 보세요. 식습관과 운동 습관을 모두 포함해서 말해 보세요.",
+        "20~30대가 건강을 유지하기 위해 가장 중요한 것 세 가지를 설명해 보세요."
+      ],
+      speedDrill: [
+        "면역력을 키우는 데 좋은 음식을 말하라면?",
+        "꾸준히 운동하되 특히 뭘 조심해야 해요?",
+        "균형 잡힌 식사를 하면 어떤 점이 좋을뿐더러?",
+        "건강에 좋은 생활 습관을 꼽으라면?",
+        "걷기 운동이 좋은 이유를 말하라면?",
+        "영양 불균형 상태가 되면 어떤 문제가 생겨요?"
       ]
     }
   },
