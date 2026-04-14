@@ -116,6 +116,8 @@ function showMainApp() {
  * Handle Google login button click
  */
 async function handleGoogleLogin() {
+  console.log('Google login clicked'); // Debug log
+
   const messageEl = document.getElementById('loginMessage');
   const button = document.getElementById('googleLoginButton');
 
@@ -1374,6 +1376,14 @@ async function initApp() {
 initApp();
 
 // Initialize login form event listener
-document.getElementById('googleLoginButton').addEventListener('click', handleGoogleLogin);
+const googleBtn = document.getElementById('googleLoginButton');
+console.log('Google login button found:', !!googleBtn); // Debug log
+
+if (googleBtn) {
+  googleBtn.addEventListener('click', handleGoogleLogin);
+  console.log('Google login event listener attached'); // Debug log
+} else {
+  console.error('Google login button not found!'); // Debug log
+}
 
 //#endregion

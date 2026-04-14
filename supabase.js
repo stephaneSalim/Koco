@@ -3,18 +3,26 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = 'https://jxbqlphxsgglrlznpall.supabase.co'
 const supabaseAnonKey = 'sb_publishable_ZrgImoU54nnrdQnxKboadg_0AFHj1cN'
 
+console.log('Supabase URL:', supabaseUrl); // Debug log
+console.log('Supabase Key exists:', !!supabaseAnonKey); // Debug log
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 // Helper functions for authentication
 export const auth = {
   // Sign in with Google OAuth
   async signInWithGoogle() {
+    console.log('signInWithGoogle called'); // Debug log
+
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: 'https://koco-xi.vercel.app'
       }
     })
+
+    console.log('OAuth result:', { data, error }); // Debug log
+
     return { data, error }
   },
 
