@@ -1,7 +1,10 @@
 /**
  * KoCo — Korean Conversation Companion
- * app.js — Application logic, modes, speech recognition, localStorage, 3-level navigation
+ * app.js — Application logic, modes, speech recognition, Supabase auth & data
  */
+
+// Import Supabase client
+import { supabase, auth, db } from './supabase.js';
 
 //#region App state
 const STATE = {
@@ -10,10 +13,10 @@ const STATE = {
   lessonId: null, // For future multi-lesson units
   isListening: false,
   isProcessing: false,
+  debateFormat: 'proCon',
   usedQuestions: {
     freeChat: new Set(),
     debate: new Set(),
-    speaking: new Set(),
     speedDrill: new Set()
   },
   session: {
@@ -21,8 +24,10 @@ const STATE = {
     exchangeCount: 0,
     totalUserWords: 0,
     totalUserResponses: 0,
-    structureHits: new Set()
-  }
+    structureHits: new Set(),
+    supabaseSessionId: null // Track current Supabase session
+  },
+  user: null // Current authenticated user
 };
 
 const STORAGE_KEYS = {
@@ -38,8 +43,7 @@ const STORAGE_KEYS = {
 const MODE_INFO = {
   freeChat: { icon: '💬', label: '자유 대화' },
   debate: { icon: '⚖️', label: '토론' },
-  speaking: { icon: '🗣️', label: '말하기 시험' },
-  speedDrill: { icon: '⚡', label: '속도 드릴' }
+  speedDrill: { icon: '⚡', label: '드릴' }
 };
 
 let conversationManager;
@@ -49,6 +53,122 @@ let hasProcessedFinalResult = false; // Track if we've already processed a final
 let audioContextUnlocked = false; // Track if audio context has been unlocked for TTS
 let lastInterimText = ''; // Store last interim text for Samsung/Android fallback
 let silenceTimeout = null; // Timeout for silence detection
+
+//#endregion
+
+//#region Authentication
+
+/**
+ * Initialize authentication and check current session
+ */
+async function initAuth() {
+  try {
+    // Check for existing session
+    const { data: { session }, error } = await supabase.auth.getSession();
+
+    if (session && session.user) {
+      STATE.user = session.user;
+      showMainApp();
+      addDebugEntry('auth', `Utilisateur connecté: ${session.user.email}`);
+    } else {
+      showLoginScreen();
+      addDebugEntry('auth', 'Aucune session active, affichage écran de connexion');
+    }
+
+    // Listen for auth changes
+    supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        STATE.user = session.user;
+        showMainApp();
+        addDebugEntry('auth', `Connexion réussie: ${session.user.email}`);
+      } else if (event === 'SIGNED_OUT') {
+        STATE.user = null;
+        showLoginScreen();
+        addDebugEntry('auth', 'Déconnexion');
+      }
+    });
+
+  } catch (error) {
+    console.error('Erreur d\'initialisation auth:', error);
+    showLoginScreen();
+  }
+}
+
+/**
+ * Show login screen and hide main app
+ */
+function showLoginScreen() {
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('mainApp').style.display = 'none';
+  document.getElementById('logoutBtn').style.display = 'none';
+}
+
+/**
+ * Show main app and hide login screen
+ */
+function showMainApp() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('mainApp').style.display = 'flex';
+  document.getElementById('logoutBtn').style.display = 'flex';
+}
+
+/**
+ * Handle login form submission
+ */
+async function handleLogin(event) {
+  event.preventDefault();
+
+  const email = document.getElementById('loginEmail').value.trim();
+  const messageEl = document.getElementById('loginMessage');
+  const button = document.getElementById('loginButton');
+
+  if (!email) {
+    showLoginMessage('이메일 주소를 입력해주세요.', 'error');
+    return;
+  }
+
+  // Disable button and show loading
+  button.disabled = true;
+  button.textContent = '전송 중...';
+  messageEl.textContent = '';
+
+  try {
+    const { error } = await auth.signInWithEmail(email);
+
+    if (error) {
+      throw error;
+    }
+
+    showLoginMessage('로그인 링크가 이메일로 전송되었습니다. 이메일을 확인해주세요.', 'success');
+
+  } catch (error) {
+    console.error('Erreur de connexion:', error);
+    showLoginMessage('로그인 링크 전송에 실패했습니다. 다시 시도해주세요.', 'error');
+  } finally {
+    button.disabled = false;
+    button.textContent = '링크 받기';
+  }
+}
+
+/**
+ * Show login message
+ */
+function showLoginMessage(message, type) {
+  const messageEl = document.getElementById('loginMessage');
+  messageEl.textContent = message;
+  messageEl.className = `login-message ${type}`;
+}
+
+/**
+ * Handle logout
+ */
+async function handleLogout() {
+  try {
+    await auth.signOut();
+  } catch (error) {
+    console.error('Erreur de déconnexion:', error);
+  }
+}
 
 //#endregion
 
@@ -98,26 +218,28 @@ const elements = {
   progressBarFill: document.getElementById('progressBarFill'),
 
   // Navigation
-  unitScroller: document.getElementById('unitScroller'),
-  lessonScroller: document.getElementById('lessonScroller'),
+  navDropdownToggle: document.getElementById('navDropdownToggle'),
+  navDropdownLabel: document.getElementById('navDropdownLabel'),
+  navDropdownMenu: document.getElementById('navDropdownMenu'),
 
-  // Input
-  inputModeBtns: document.querySelectorAll('.input-mode-btn'),
-  inputAreaVoice: document.querySelector('.input-area--voice'),
-  inputAreaText: document.querySelector('.input-area--text'),
-  textInput: document.querySelector('.text-input'),
-  textSendBtn: document.querySelector('.text-send-btn'),
+  // Input — WhatsApp-style unified bar
+  inputBarMicBtn: document.getElementById('inputBarMicBtn'),
+  inputBarText: document.getElementById('inputBarText'),
+  inputBarActionBtn: document.getElementById('inputBarActionBtn'),
+  transcriptionInline: document.getElementById('transcriptionInline'),
 
   // Conversation
   conversation: document.querySelector('.conversation'),
   transcription: document.querySelector('.transcription'),
   transcriptionIndicator: document.querySelector('.transcription__indicator'),
-  micButton: document.querySelector('.mic-button'),
-  micStatus: document.querySelector('.mic-status'),
 
   // Navigation & UI
   navTabs: Array.from(document.querySelectorAll('.nav-tab')),
   ttsToggle: document.querySelector('.tts-toggle'),
+  debateOptimizeBtn: document.getElementById('debateOptimizeBtn'),
+  debateOptimizeModal: document.getElementById('debateOptimizeModal'),
+  debateOptimizeStartBtn: document.getElementById('debateOptimizeStartBtn'),
+  debateOptimizeCancelBtn: document.getElementById('debateOptimizeCancelBtn'),
   fluencyBadge: document.querySelector('.fluency-badge'),
   apiModal: document.querySelector('.modal-overlay'),
   apiInput: document.querySelector('.modal__input'),
@@ -133,72 +255,110 @@ const elements = {
 //#region Navigation 3-Level System
 
 /**
- * Generate unit selector pills from UNITS data
+ * Generate navigation dropdown with all chapters and lessons
  */
-function generateUnitSelector() {
-  const unitIds = Object.keys(UNITS);
-  const progress = getProgressData();
+function generateNavDropdown() {
+  elements.navDropdownMenu.innerHTML = '';
 
-  elements.unitScroller.innerHTML = '';
+  // Iterate through all chapters
+  for (const chapterNum in CHAPTERS) {
+    const chapter = CHAPTERS[chapterNum];
 
-  unitIds.forEach(unitId => {
-    const unit = UNITS[unitId];
-    const pill = document.createElement('button');
-    pill.className = 'unit-pill';
-    pill.dataset.unitId = unitId;
-    pill.textContent = unit.title;
+    // Create chapter group
+    const chapterSection = document.createElement('div');
+    chapterSection.className = 'nav-dropdown-chapter';
 
-    // Mark as active if this is the current unit
-    if (unitId === STATE.unitId) {
-      pill.classList.add('active');
+    // Chapter title (without "단원")
+    const chapterTitle = document.createElement('div');
+    chapterTitle.className = 'nav-dropdown-chapter-title';
+    chapterTitle.textContent = `${chapter.major} ${chapter.title}`;
+    chapterSection.appendChild(chapterTitle);
+
+    // Add lessons for this chapter
+    for (const lessonNum in chapter.lessons) {
+      const lesson = chapter.lessons[lessonNum];
+      const unitId = lesson.id;
+
+      const lessonDiv = document.createElement('div');
+      lessonDiv.className = 'nav-dropdown-lesson';
+
+      const lessonBtn = document.createElement('button');
+      const isAvailable = Boolean(UNITS[unitId]);
+      lessonBtn.className = `nav-dropdown-lesson-btn${isAvailable ? '' : ' nav-dropdown-lesson-btn--disabled'}`;
+      lessonBtn.textContent = `${chapter.major}-${lessonNum} ${lesson.title}`;
+      lessonBtn.dataset.unitId = unitId;
+      lessonBtn.disabled = !isAvailable;
+      lessonBtn.title = isAvailable ? `${chapter.major}-${lessonNum} ${lesson.title}` : '이 레슨은 아직 준비되지 않았습니다.';
+
+      // Mark as selected if current unit
+      if (unitId === STATE.unitId && isAvailable) {
+        lessonBtn.setAttribute('data-selected', 'true');
+      }
+
+      if (isAvailable) {
+        lessonBtn.addEventListener('click', () => {
+          selectUnit(unitId);
+          closeNavDropdown();
+        });
+      }
+
+      lessonDiv.appendChild(lessonBtn);
+      chapterSection.appendChild(lessonDiv);
     }
 
-    // Mark as completed if user has finished this unit
-    if (progress.completedUnits[unitId]) {
-      pill.classList.add('completed');
-    }
+    elements.navDropdownMenu.appendChild(chapterSection);
+  }
 
-    pill.addEventListener('click', () => selectUnit(unitId));
-    elements.unitScroller.appendChild(pill);
-  });
+  // Update label to show current selection
+  updateNavDropdownLabel();
 }
 
 /**
- * Generate lesson selector cards for current unit
+ * Update the dropdown label to show current unit
  */
-function generateLessonSelector() {
-  const unit = UNITS[STATE.unitId];
-  if (!unit) return;
-
-  elements.lessonScroller.innerHTML = '';
-
-  // For now, units have single lesson. Future: support multiple lessons per unit
-  const lessonId = STATE.unitId; // Lesson ID matches unit ID for now
-  const card = document.createElement('button');
-  card.className = 'lesson-card';
-  card.dataset.lessonId = lessonId;
-
-  // Special styling for merged units
-  if (STATE.unitId.includes('merged')) {
-    card.classList.add('merged');
+function updateNavDropdownLabel() {
+  // Find current chapter and lesson
+  let found = false;
+  for (const chapterNum in CHAPTERS) {
+    const chapter = CHAPTERS[chapterNum];
+    for (const lessonNum in chapter.lessons) {
+      const lesson = chapter.lessons[lessonNum];
+      if (lesson.id === STATE.unitId) {
+        elements.navDropdownLabel.textContent = `${chapter.major} ${chapter.title}`;
+        found = true;
+        break;
+      }
+    }
+    if (found) break;
   }
+}
 
-  card.innerHTML = `
-    <span class="lesson-card__title">${unit.title}</span>
-    <span class="lesson-card__theme">${unit.subtitle}</span>
-  `;
-
-  // Mark as active
-  card.classList.add('active');
-
-  // Mark as completed if unit is completed
-  const progress = getProgressData();
-  if (progress.completedUnits[STATE.unitId]) {
-    card.classList.add('completed');
+/**
+ * Toggle nav dropdown menu visibility
+ */
+function toggleNavDropdown() {
+  const isExpanded = elements.navDropdownToggle.getAttribute('aria-expanded') === 'true';
+  if (isExpanded) {
+    closeNavDropdown();
+  } else {
+    openNavDropdown();
   }
+}
 
-  card.addEventListener('click', () => selectLesson(lessonId));
-  elements.lessonScroller.appendChild(card);
+/**
+ * Open nav dropdown menu
+ */
+function openNavDropdown() {
+  elements.navDropdownToggle.setAttribute('aria-expanded', 'true');
+  elements.navDropdownMenu.style.display = 'block';
+}
+
+/**
+ * Close nav dropdown menu
+ */
+function closeNavDropdown() {
+  elements.navDropdownToggle.setAttribute('aria-expanded', 'false');
+  elements.navDropdownMenu.style.display = 'none';
 }
 
 /**
@@ -209,15 +369,14 @@ function selectUnit(unitId) {
 
   // Update state
   STATE.unitId = unitId;
-  STATE.lessonId = unitId; // For now, lesson = unit
+  STATE.lessonId = unitId;
 
   // Save to localStorage
   localStorage.setItem(STORAGE_KEYS.selectedUnit, unitId);
   localStorage.setItem(STORAGE_KEYS.selectedLesson, unitId);
 
   // Update UI
-  updateUnitSelector();
-  generateLessonSelector();
+  generateNavDropdown();
   updateHeader();
   updateProgressBar();
 
@@ -228,67 +387,22 @@ function selectUnit(unitId) {
 }
 
 /**
- * Select a lesson and update UI
- */
-function selectLesson(lessonId) {
-  if (lessonId !== STATE.unitId) return; // For now, only one lesson per unit
-
-  STATE.lessonId = lessonId;
-
-  // Save to localStorage
-  localStorage.setItem(STORAGE_KEYS.selectedLesson, lessonId);
-
-  // Update UI
-  updateLessonSelector();
-  updateHeader();
-  updateProgressBar();
-
-  // Reset conversation and questions for new lesson
-  resetConversationForNewUnit();
-
-  addDebugEntry('navigation', `Leçon sélectionnée: ${lessonId}`);
-}
-
-/**
- * Update unit selector active state
- */
-function updateUnitSelector() {
-  const pills = elements.unitScroller.querySelectorAll('.unit-pill');
-  pills.forEach(pill => {
-    if (pill.dataset.unitId === STATE.unitId) {
-      pill.classList.add('active');
-    } else {
-      pill.classList.remove('active');
-    }
-  });
-}
-
-/**
- * Update lesson selector active state
- */
-function updateLessonSelector() {
-  const cards = elements.lessonScroller.querySelectorAll('.lesson-card');
-  cards.forEach(card => {
-    if (card.dataset.lessonId === STATE.lessonId) {
-      card.classList.add('active');
-    } else {
-      card.classList.remove('active');
-    }
-  });
-}
-
-/**
  * Update header with current lesson context
  */
 function updateHeader() {
   const unit = UNITS[STATE.unitId];
   if (!unit) return;
 
-  elements.headerLessonTitle.textContent = unit.title;
-  elements.headerLessonTheme.textContent = unit.subtitle;
-  elements.headerModeBadge.textContent = MODE_INFO[STATE.mode].label;
+  // Keep app branding but show the current unit group and lesson info
+  const [major, minor] = unit.id.replace('unit_', '').split('_');
+  elements.headerBranding.textContent = `${major}단원 ${unit.theme || ''}`;
 
-  addDebugEntry('header', `Mis à jour: ${unit.title} - ${MODE_INFO[STATE.mode].label}`);
+  // Title should include Korean and English label (matching screenshot style)
+  elements.headerLessonTitle.textContent = `${unit.title} ${unit.subtitle ? `· ${unit.subtitle}` : ''}`;
+  elements.headerLessonTheme.textContent = `학습 단원: ${major}-${minor}`;
+  elements.headerModeBadge.textContent = MODE_INFO[STATE.mode].icon;
+
+  addDebugEntry('header', `Mis à jour: ${elements.headerBranding.textContent} | ${elements.headerLessonTitle.textContent}`);
 }
 
 /**
@@ -465,63 +579,43 @@ function updateTtsButton() {
 
 //#endregion
 
-//#region Input Mode Management
-function getInputMode() {
-  return localStorage.getItem(STORAGE_KEYS.inputMode) || 'voice';
-}
-
-function setInputMode(mode) {
-  localStorage.setItem(STORAGE_KEYS.inputMode, mode);
-  updateInputMode();
-}
-
-function updateInputMode() {
-  const currentMode = getInputMode();
-
-  // Update button states
-  elements.inputModeBtns.forEach(btn => {
-    if (btn.dataset.mode === currentMode) {
-      btn.classList.add('active');
-    } else {
-      btn.classList.remove('active');
-    }
-  });
-
-  // Update input areas
-  if (currentMode === 'voice') {
-    elements.inputAreaVoice.classList.add('active');
-    elements.inputAreaText.classList.remove('active');
-    // Reset mic state when switching to voice mode
-    if (!STATE.isProcessing) {
-      setMicState('idle');
-    }
+//#region Input Mode Management — WhatsApp-Style Unified Bar
+/**
+ * Update input bar state and action button icon based on text content
+ */
+function updateInputBarState() {
+  if (STATE.isListening) {
+    // Show keyboard button when listening
+    elements.inputBarActionBtn.textContent = '⌨️';
+    elements.inputBarActionBtn.style.color = '#4a90e2';
   } else {
-    elements.inputAreaVoice.classList.remove('active');
-    elements.inputAreaText.classList.add('active');
-    // Stop any ongoing voice recognition when switching to text mode
-    if (STATE.isListening) {
-      stopListening();
-    }
+    // Show send button when not listening
+    elements.inputBarActionBtn.textContent = '➤';
+    elements.inputBarActionBtn.style.color = '#4a90e2';
   }
 }
 
+/**
+ * Send text input from the unified input bar
+ */
 function sendTextInput() {
-  const text = elements.textInput.value.trim();
+  const text = elements.inputBarText.value.trim();
   if (!text || STATE.isProcessing) return;
 
-  // Disable send button during processing
-  elements.textSendBtn.disabled = true;
+  // Disable action button during processing
+  elements.inputBarActionBtn.disabled = true;
 
-  // Send to API (same logic as voice input)
+  // Send to API
   processUserInput(text);
 
   // Clear input
-  elements.textInput.value = '';
-  elements.textInput.focus();
+  elements.inputBarText.value = '';
+  updateInputBarState();
+  elements.inputBarText.focus();
 
-  // Re-enable send button after processing starts
+  // Re-enable action button after processing starts
   setTimeout(() => {
-    elements.textSendBtn.disabled = false;
+    elements.inputBarActionBtn.disabled = false;
   }, 100);
 }
 
@@ -567,16 +661,28 @@ function showTypingIndicator(show) {
 }
 
 function setMicState(state) {
-  elements.micButton.classList.remove('listening');
-  elements.micButton.disabled = false;
+  // Update visual feedback for mic button and action button
+  elements.inputBarMicBtn.classList.remove('listening');
+  elements.inputBarMicBtn.disabled = false;
+  
   if (state === 'listening') {
-    elements.micButton.classList.add('listening');
-    elements.micStatus.textContent = '듣는 중...';
+    elements.inputBarMicBtn.classList.add('listening');
+    elements.inputBarMicBtn.style.color = '#ff4444';
+    if (elements.transcriptionInline) {
+      elements.transcriptionInline.classList.add('active');
+    }
   } else if (state === 'processing') {
-    elements.micStatus.textContent = '처리 중...';
+    elements.inputBarMicBtn.style.opacity = '0.6';
   } else {
-    elements.micStatus.textContent = '마이크 시작';
+    elements.inputBarMicBtn.style.color = '#4a90e2';
+    elements.inputBarMicBtn.style.opacity = '1';
+    if (elements.transcriptionInline) {
+      elements.transcriptionInline.classList.remove('active');
+    }
   }
+  
+  // Update action button state
+  updateInputBarState();
 }
 
 function updateNav() {
@@ -639,10 +745,59 @@ function updateMode(newMode) {
 
   STATE.mode = newMode;
   STATE.usedQuestions[newMode] = STATE.usedQuestions[newMode] || new Set();
+  
+  // FIX 1 : Vider la conversation au changement de mode
+  elements.conversation.innerHTML = '';
+  
   updateHeader();
   updateNav();
+  updateDebateOptimizeButtonVisibility();
   nextQuestion();
 }
+
+function updateDebateOptimizeButtonVisibility() {
+  if (!elements.debateOptimizeBtn) return;
+  if (STATE.mode === 'debate') {
+    elements.debateOptimizeBtn.classList.remove('header__optimize-btn--hidden');
+  } else {
+    elements.debateOptimizeBtn.classList.add('header__optimize-btn--hidden');
+    closeDebateOptimize();
+  }
+}
+
+function openDebateOptimize() {
+  if (!elements.debateOptimizeModal) return;
+  elements.debateOptimizeModal.classList.remove('modal-overlay--hidden');
+  elements.debateOptimizeModal.setAttribute('aria-hidden', 'false');
+}
+
+function closeDebateOptimize() {
+  if (!elements.debateOptimizeModal) return;
+  elements.debateOptimizeModal.classList.add('modal-overlay--hidden');
+  elements.debateOptimizeModal.setAttribute('aria-hidden', 'true');
+}
+
+function applyDebateOptimizeSettings() {
+  const selectedOption = document.querySelector('input[name="debateFormat"]:checked');
+  const chosenFormat = selectedOption ? selectedOption.value : 'proCon';
+  STATE.debateFormat = chosenFormat;
+  
+  // Clean slate for new debate format
+  elements.conversation.innerHTML = '';
+  if (conversationManager && typeof conversationManager.clear === 'function') {
+    conversationManager.clear();
+  }
+
+  // Ensure debate mode is active
+  STATE.mode = 'debate';
+  updateHeader();
+  updateNav();
+  updateDebateOptimizeButtonVisibility();
+  closeDebateOptimize();
+  nextQuestion();
+  showAlert('success', '토론 형식이 적용되었습니다. 새로운 토론을 시작합니다.');
+}
+
 
 //#endregion
 
@@ -652,7 +807,7 @@ function initSpeechRecognition() {
 
   if (!SpeechRecognition) {
     showAlert('error', '이 브라우저는 Web Speech API를 지원하지 않습니다. Chrome을 사용하세요.');
-    elements.micButton.disabled = true;
+    elements.inputBarMicBtn.disabled = true;
     return;
   }
 
@@ -812,11 +967,101 @@ function toggleListening() {
   }
 }
 
+/**
+ * Handle action button click — send text or toggle voice
+ */
+function handleActionButtonClick() {
+  if (STATE.isListening) {
+    // Switch to keyboard
+    switchToKeyboard();
+  } else {
+    // Send text
+    sendTextInput();
+  }
+}
+
+/**
+ * Switch to text input mode via keyboard button
+ */
+function switchToKeyboard() {
+  if (STATE.isListening) {
+    stopListening();
+  }
+  // Focus on the text input
+  elements.inputBarText.focus();
+}
+
 //#endregion
+
+//#region API key modal functions
+function showApiModal() {
+  elements.apiModal.classList.remove('modal-overlay--hidden');
+}
+
+function hideApiModal() {
+  elements.apiModal.classList.add('modal-overlay--hidden');
+}
+
+function applyApiKey() {
+  const key = elements.apiInput.value.trim();
+  if (!key) {
+    showAlert('warning', 'API 키를 입력해주세요.');
+    return;
+  }
+
+  const saved = setApiKey(key);
+  if (saved) {
+    hideApiModal();
+    showAlert('success', 'API 키 저장 완료');
+  } else {
+    showAlert('error', 'API 키 저장 실패');
+  }
+}
+
+//#endregion
+
 
 //#region API interaction + conversation flow
 async function processUserInput(text) {
   if (!text) return;
+
+  // Create or update Supabase session
+  if (!STATE.session.supabaseSessionId) {
+    try {
+      const modeMap = {
+        freeChat: '자유대화',
+        debate: '토론',
+        speedDrill: '드릴'
+      };
+
+      const sessionData = {
+        user_id: STATE.user.id,
+        lesson_id: STATE.unitId, // Using unitId as lesson_id for now
+        mode: modeMap[STATE.mode] || '자유대화',
+        created_at: new Date().toISOString()
+      };
+
+      const { data: session, error } = await db.createSession(sessionData);
+      if (session) {
+        STATE.session.supabaseSessionId = session.id;
+        addDebugEntry('session', `Session Supabase créée: ${session.id}`);
+      } else {
+        console.error('Erreur création session:', error);
+      }
+    } catch (error) {
+      console.error('Erreur création session Supabase:', error);
+    }
+  } else {
+    // Update session duration
+    try {
+      const duration = Math.floor((Date.now() - STATE.session.sessionStart) / 1000);
+      await db.updateSession(STATE.session.supabaseSessionId, {
+        duration_seconds: duration
+      });
+    } catch (error) {
+      console.error('Erreur mise à jour durée session:', error);
+    }
+  }
 
   // Add user message to the UI
   addMessage('user', text);
@@ -827,12 +1072,13 @@ async function processUserInput(text) {
   STATE.session.totalUserResponses += 1;
   STATE.session.exchangeCount += 1;
 
-  const unitContext = UNITS[STATE.unitId];
+  const unitContext = getUnit(STATE.unitId);
   const context = getSessionContext(STATE.unitId, parseInt(unitContext?.snu_level?.[3] || '3', 10) || 3);
-  const systemPrompt = generateSystemPrompt(context, STATE.mode);
+  const systemPrompt = generateSystemPrompt(context, STATE.mode, STATE.debateFormat);
 
   STATE.isProcessing = true;
-  if (getInputMode() === 'voice') {
+  // Show processing state when listening
+  if (STATE.isListening) {
     setMicState('processing');
   }
   showTypingIndicator(true);
@@ -845,17 +1091,29 @@ async function processUserInput(text) {
         showAlert('error', 'API 키가 잘못되었습니다. 다시 입력해주세요.');
         showApiModal();
       } else if (result.error === 'API_KEY_MISSING') {
+        showAlert('error', 'API 키가 필요합니다. 설정에서 API 키를 입력해주세요.');
         showApiModal();
+      } else if (result.error === 'NETWORK_ERROR' && result.details === 'Failed to fetch') {
+        showAlert('error', '서버에 연결할 수 없습니다. 터미널에서 "npm start"를 실행하여 프록시 서버를 시작하세요.');
       } else {
         showAlert('error', `API 요청 실패: ${result.details || result.error}`);
       }
       return;
     }
 
-    addMessage('assistant', result.response);
+    // Parse response to separate conversation from correction
+    const { conversationResponse, correctionBlock } = parseApiResponse(result.response);
 
-    // TTS: Read companion's response aloud if enabled
-    speak(result.response);
+    // Add conversation response
+    addMessage('assistant', conversationResponse);
+
+    // Add correction block if present
+    if (correctionBlock) {
+      addCorrectionBlock(correctionBlock, text);
+    }
+
+    // TTS: Read companion's response aloud if enabled (only the conversation part)
+    speak(conversationResponse);
 
     // Track detected structures, if any
     const detected = detectTargetStructures(text, unitContext.targetGrammar || []);
@@ -866,10 +1124,6 @@ async function processUserInput(text) {
       const progress = getProgressData();
       progress.completedUnits[STATE.unitId] = true;
       saveProgressData(progress);
-
-      // Update UI to show completion
-      updateUnitSelector();
-      updateLessonSelector();
     }
 
     updateFluencyIndicator();
@@ -880,11 +1134,11 @@ async function processUserInput(text) {
   } finally {
     STATE.isProcessing = false;
     showTypingIndicator(false);
-    if (getInputMode() === 'voice') {
+    if (STATE.isListening) {
       setMicState('idle');
     } else {
-      // Re-enable text send button
-      elements.textSendBtn.disabled = false;
+      // Re-enable action button after processing
+      elements.inputBarActionBtn.disabled = false;
     }
   }
 }
@@ -916,8 +1170,104 @@ function applyApiKey() {
 
 //#endregion
 
+//#region Response Parsing & Correction Display
+
+/**
+ * Parse API response to separate conversation from correction
+ * @param {string} response - Full API response
+ * @returns {object} { conversationResponse, correctionBlock }
+ */
+function parseApiResponse(response) {
+  const separator = '---\nCORRECTION:';
+
+  if (response.includes(separator)) {
+    const parts = response.split(separator);
+    return {
+      conversationResponse: parts[0].trim(),
+      correctionBlock: parts[1].trim()
+    };
+  }
+
+  // Fallback: if no separator found, treat whole response as conversation
+  return {
+    conversationResponse: response.trim(),
+    correctionBlock: null
+  };
+}
+
+/**
+ * Add a correction block to the conversation
+ * @param {string} correctionText - The correction content
+ * @param {string} originalUserText - The user's original message
+ */
+function addCorrectionBlock(correctionText, originalUserText) {
+  // Create correction message element
+  const correctionDiv = document.createElement('div');
+  correctionDiv.className = 'message message--correction';
+
+  // Format the correction block
+  const formattedCorrection = formatCorrectionBlock(correctionText, originalUserText);
+
+  correctionDiv.innerHTML = `
+    <div class="correction-block">
+      ${formattedCorrection}
+    </div>
+  `;
+
+  // Add to conversation
+  elements.conversation.appendChild(correctionDiv);
+  elements.conversation.scrollTop = elements.conversation.scrollHeight;
+
+  addDebugEntry('correction', `Correction affichée: ${correctionText.substring(0, 50)}...`);
+}
+
+/**
+ * Format correction text into visual block
+ * @param {string} correctionText - Raw correction text
+ * @param {string} originalUserText - User's original message
+ * @returns {string} HTML formatted correction
+ */
+function formatCorrectionBlock(correctionText, originalUserText) {
+  // If it's a positive message (no correction needed)
+  if (correctionText.includes('자연스러워요') || correctionText.includes('잘 하셨어요')) {
+    return `
+      <div class="correction-positive">
+        ${correctionText}
+      </div>
+    `;
+  }
+
+  // Parse structured correction
+  const lines = correctionText.split('\n').filter(line => line.trim());
+
+  return `
+    <div class="correction-structured">
+      <div class="correction-line">💬 Ta phrase : "${originalUserText}"</div>
+      ${lines.map(line => {
+        if (line.startsWith('✅')) {
+          return `<div class="correction-line correction-natural">${line}</div>`;
+        } else if (line.startsWith('🔧')) {
+          return `<div class="correction-line correction-explanation">${line}</div>`;
+        } else {
+          return `<div class="correction-line">${line}</div>`;
+        }
+      }).join('')}
+    </div>
+  `;
+}
+
+//#endregion
+
 //#region Initialization
-function initApp() {
+async function initApp() {
+  // Initialize authentication first
+  await initAuth();
+
+  // Only initialize the rest of the app if user is authenticated
+  if (!STATE.user) {
+    return;
+  }
+
   conversationManager = new ConversationManager();
   STATE.session.sessionStart = Date.now();
 
@@ -939,61 +1289,66 @@ function initApp() {
     if (e.ctrlKey && e.shiftKey && e.key === 'D') {
       e.preventDefault();
       toggleDebugPanel();
-  }
+    }
   });
 
   // Initial debug log
   addDebugEntry('init', 'Speech API Debug initialisé (Ctrl+Shift+D pour afficher/masquer)');
 
-  // Initialize navigation selectors
-  generateUnitSelector();
-  generateLessonSelector();
+  // Initialize navigation dropdown
+  generateNavDropdown();
 
-  // Initialize input mode
-  updateInputMode();
+  // Initialize input bar state
+  updateInputBarState();
 
   // Register DOM events
-  elements.micButton.addEventListener('click', toggleListening);
+  elements.navDropdownToggle.addEventListener('click', toggleNavDropdown);
+
+  // Input bar events
+  elements.inputBarMicBtn.addEventListener('click', toggleListening);
+  elements.inputBarActionBtn.addEventListener('click', handleActionButtonClick);
+  elements.inputBarText.addEventListener('input', updateInputBarState);
+  elements.inputBarText.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleActionButtonClick();
+    }
+  });
+
   elements.nextQuestionButton.addEventListener('click', () => nextQuestion());
   elements.ttsToggle.addEventListener('click', () => setTtsEnabled(!isTtsEnabled()));
 
-  // Input mode events
-  elements.inputModeBtns.forEach(btn => {
-    btn.addEventListener('click', () => setInputMode(btn.dataset.mode));
-  });
-
-  elements.textSendBtn.addEventListener('click', sendTextInput);
-
-  elements.textInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendTextInput();
-    }
-  });
+  if (elements.debateOptimizeBtn) {
+    elements.debateOptimizeBtn.addEventListener('click', openDebateOptimize);
+  }
+  if (elements.debateOptimizeStartBtn) {
+    elements.debateOptimizeStartBtn.addEventListener('click', applyDebateOptimizeSettings);
+  }
+  if (elements.debateOptimizeCancelBtn) {
+    elements.debateOptimizeCancelBtn.addEventListener('click', closeDebateOptimize);
+  }
 
   elements.navTabs.forEach(tab => {
     tab.addEventListener('click', () => updateMode(tab.dataset.mode));
   });
 
-  elements.apiSaveButton.addEventListener('click', applyApiKey);
-  elements.apiCancelButton.addEventListener('click', () => {
-    if (!getApiKey()) {
-      showAlert('error', 'API 키가 필요합니다. 앱을 재실행 후 입력해 주세요.');
+  // Logout button event
+  document.getElementById('logoutBtn').addEventListener('click', handleLogout);
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.nav-dropdown-section')) {
+      closeNavDropdown();
     }
-    hideApiModal();
   });
 
   initSpeechRecognition();
-
-  const apiKey = getApiKey();
-  if (!apiKey) {
-    showApiModal();
-  }
 
   // Initialize UI with current state
   updateHeader();
   updateNav();
   updateProgressBar();
+  updateMode(STATE.mode);
   setMicState('idle');
   updateFluencyIndicator();
 
@@ -1008,585 +1363,7 @@ function initApp() {
 
 initApp();
 
-//#endregion
-  
-  if (selectedVoice) {
-    utterance.voice = selectedVoice;
-  }
-
-  utterance.rate = 1;
-  utterance.pitch = 1;
-  utterance.volume = 1;
-
-  // iOS requires a small delay before speaking
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-  const delay = isIOS ? 100 : 0;
-
-  setTimeout(() => {
-    window.speechSynthesis.speak(utterance);
-  }, delay);
-}
-
-function unlockAudioContext() {
-  if (audioContextUnlocked || !window.speechSynthesis) return;
-  
-  // Play a silent utterance to unlock audio context on mobile
-  const silentUtterance = new SpeechSynthesisUtterance('');
-  silentUtterance.volume = 0;
-  silentUtterance.onend = () => {
-    audioContextUnlocked = true;
-  };
-  
-  window.speechSynthesis.speak(silentUtterance);
-}
-
-function updateTtsButton() {
-  if (!elements.ttsToggle) return;
-  
-  if (isTtsEnabled()) {
-    elements.ttsToggle.classList.add('tts-toggle--active');
-    elements.ttsToggle.setAttribute('title', '음성 합성 켜짐');
-  } else {
-    elements.ttsToggle.classList.remove('tts-toggle--active');
-    elements.ttsToggle.setAttribute('title', '음성 합성 꺼짐');
-  }
-}
-
-//#endregion
-
-//#region Input Mode Management
-function getInputMode() {
-  return localStorage.getItem(STORAGE_KEYS.inputMode) || 'voice';
-}
-
-function setInputMode(mode) {
-  localStorage.setItem(STORAGE_KEYS.inputMode, mode);
-  updateInputMode();
-}
-
-function updateInputMode() {
-  const currentMode = getInputMode();
-  
-  // Update button states
-  elements.inputModeBtns.forEach(btn => {
-    if (btn.dataset.mode === currentMode) {
-      btn.classList.add('active');
-    } else {
-      btn.classList.remove('active');
-    }
-  });
-  
-  // Update input areas
-  if (currentMode === 'voice') {
-    elements.inputAreaVoice.classList.add('active');
-    elements.inputAreaText.classList.remove('active');
-    // Reset mic state when switching to voice mode
-    if (!STATE.isProcessing) {
-      setMicState('idle');
-    }
-  } else {
-    elements.inputAreaVoice.classList.remove('active');
-    elements.inputAreaText.classList.add('active');
-    // Stop any ongoing voice recognition when switching to text mode
-    if (STATE.isListening) {
-      stopListening();
-    }
-  }
-}
-
-function sendTextInput() {
-  const text = elements.textInput.value.trim();
-  if (!text || STATE.isProcessing) return;
-  
-  // Disable send button during processing
-  elements.textSendBtn.disabled = true;
-  
-  // Send to API (same logic as voice input)
-  processUserInput(text);
-  
-  // Clear input
-  elements.textInput.value = '';
-  elements.textInput.focus();
-  
-  // Re-enable send button after processing starts
-  setTimeout(() => {
-    elements.textSendBtn.disabled = false;
-  }, 100);
-}
-
-//#endregion
-
-//#region UI helpers
-function showAlert(type, text) {
-  const html = `
-    <div class="alert alert--${type}">
-      ${text}
-    </div>
-  `;
-  elements.alertArea.innerHTML = html;
-  setTimeout(() => {
-    elements.alertArea.innerHTML = '';
-  }, 4200);
-}
-
-function updateHeader() {
-  const unit = getUnit(STATE.unitId);
-  elements.headerTitle.textContent = unit ? unit.title : 'KoCo';
-  elements.headerUnit.textContent = unit ? unit.subtitle : '';
-  elements.headerMode.textContent = `${MODE_INFO[STATE.mode].label} · ${unit?.snu_level ?? ''}`;
-}
-
-function addMessage(role, text) {
-  const wrapper = document.createElement('div');
-  wrapper.classList.add('message', `message--${role}`);
-
-  const bubble = document.createElement('div');
-  bubble.classList.add('message__bubble');
-  bubble.textContent = text;
-
-  const meta = document.createElement('div');
-  meta.classList.add('message__meta');
-  meta.textContent = role === 'user' ? '나:' : '코코:';
-
-  bubble.appendChild(meta);
-  wrapper.appendChild(bubble);
-  elements.conversation.appendChild(wrapper);
-  elements.conversation.scrollTop = elements.conversation.scrollHeight;
-}
-
-function showTypingIndicator(show) {
-  elements.typingIndicator.style.display = show ? 'flex' : 'none';
-  if (show) elements.conversation.scrollTop = elements.conversation.scrollHeight;
-}
-
-function setMicState(state) {
-  elements.micButton.classList.remove('mic-button--listening', 'mic-button--processing');
-  elements.micButton.disabled = false;
-  if (state === 'listening') {
-    elements.micButton.classList.add('mic-button--listening');
-    elements.micStatus.textContent = '듣는 중...';
-  } else if (state === 'processing') {
-    elements.micButton.classList.add('mic-button--processing');
-    elements.micStatus.textContent = '처리 중...';
-  } else {
-    elements.micStatus.textContent = '마이크 시작';
-  }
-}
-
-function updateNav() {
-  elements.navTabs.forEach(tab => {
-    if (tab.dataset.mode === STATE.mode) {
-      tab.classList.add('active');
-    } else {
-      tab.classList.remove('active');
-    }
-  });
-}
-
-function updateFluencyIndicator() {
-  const totalWords = STATE.session.totalUserWords;
-  const exchanges = STATE.session.totalUserResponses;
-  const avg = exchanges === 0 ? 0 : Math.round(totalWords / exchanges);
-
-  let badgeClass = 'fluency-badge--low';
-  let label = '유창성: 짧음';
-  let width = 25;
-
-  if (avg > 15) {
-    badgeClass = 'fluency-badge--high';
-    label = '유창성: 길음';
-    width = 90;
-  } else if (avg > 7) {
-    badgeClass = 'fluency-badge--medium';
-    label = '유창성: 중간';
-    width = 60;
-  }
-
-  elements.fluencyBadge.className = `fluency-badge ${badgeClass}`;
-  elements.fluencyBadge.textContent = `${label} (${avg} 단어)`;
-  elements.fluencyBarFill.style.width = `${width}%`;
-}
-
-function setQuestion(prompt) {
-  addMessage('assistant', prompt);
-}
-
-function nextQuestion() {
-  const unit = getUnit(STATE.unitId);
-  if (!unit) return;
-
-  const questions = unit.questions[STATE.mode];
-  if (!questions || questions.length === 0) return;
-
-  const used = STATE.usedQuestions[STATE.mode];
-  if (used.size === questions.length) {
-    used.clear();
-  }
-
-  let candidate;
-  do {
-    candidate = questions[Math.floor(Math.random() * questions.length)];
-  } while (used.has(candidate) && used.size < questions.length);
-
-  used.add(candidate);
-  setQuestion(candidate);
-}
-
-function updateMode(newMode) {
-  if (!MODE_INFO[newMode]) return;
-
-  STATE.mode = newMode;
-  STATE.usedQuestions[newMode] = STATE.usedQuestions[newMode] || new Set();
-  updateHeader();
-  updateNav();
-  nextQuestion();
-}
-
-//#endregion
-
-//#region Speech recognition setup
-function initSpeechRecognition() {
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-  if (!SpeechRecognition) {
-    showAlert('error', '이 브라우저는 Web Speech API를 지원하지 않습니다. Chrome을 사용하세요.');
-    elements.micButton.disabled = true;
-    return;
-  }
-
-  recognition = new SpeechRecognition();
-  recognition.lang = 'ko-KR';
-  recognition.continuous = true;
-  recognition.interimResults = true;
-
-  recognition.onstart = () => {
-    addDebugEntry('onstart', 'micro démarré');
-    STATE.isListening = true;
-    hasProcessedFinalResult = false; // Reset for new recognition session
-    lastInterimText = ''; // Reset interim text
-    if (silenceTimeout) {
-      clearTimeout(silenceTimeout);
-      silenceTimeout = null;
-    }
-    setMicState('listening');
-    elements.transcriptionIndicator.textContent = '음성 인식 중...';
-  };
-
-  recognition.onresult = (event) => {
-    let interim = '';
-    let final = '';
-
-    for (let i = event.resultIndex; i < event.results.length; i += 1) {
-      const result = event.results[i];
-      const transcript = result[0].transcript.trim();
-      if (result.isFinal) {
-        final += transcript + ' ';
-      } else {
-        interim += transcript + ' ';
-      }
-    }
-
-    // Log result details
-    const resultText = final || interim;
-    const isFinal = final ? 'true' : 'false';
-    addDebugEntry('onresult', `isFinal: ${isFinal} — texte: "${resultText}"`);
-
-    elements.transcription.textContent = final || interim;
-    elements.transcription.classList.toggle('transcription--interim', !!interim && !final);
-
-    // Store last interim text for fallback
-    if (interim) {
-      lastInterimText = interim.trim();
-    }
-
-    // Clear existing timeout and set new one for silence detection
-    if (silenceTimeout) {
-      clearTimeout(silenceTimeout);
-    }
-    silenceTimeout = setTimeout(() => {
-      if (lastInterimText && !hasProcessedFinalResult) {
-        // Samsung/Android fallback: send last interim text after 1500ms silence
-        addDebugEntry('timeout', `envoi automatique après 1500ms: "${lastInterimText}"`);
-        hasProcessedFinalResult = true;
-        processUserInput(lastInterimText);
-        elements.transcription.textContent = '';
-        lastInterimText = '';
-        
-        // Restart recognition after processing
-        setTimeout(() => {
-          if (!STATE.isProcessing) {
-            startListening();
-          }
-        }, 100);
-      }
-    }, 1500);
-
-    // Only process final results, and only once per recognition session
-    if (final && !hasProcessedFinalResult) {
-      hasProcessedFinalResult = true;
-      clearTimeout(silenceTimeout); // Clear the fallback timeout
-      processUserInput(final.trim());
-      elements.transcription.textContent = '';
-      lastInterimText = '';
-      
-      // Restart recognition after processing
-      setTimeout(() => {
-        if (!STATE.isProcessing) {
-          startListening();
-        }
-      }, 100);
-    }
-  };
-
-  recognition.onerror = (event) => {
-    addDebugEntry('onerror', `erreur: ${event.error}`);
-    console.error('Speech recognition error', event.error);
-    if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-      showAlert('error', '마이크 접근이 거부되었습니다. 브라우저 설정을 확인하세요.');
-      stopListening();
-      setMicState('idle');
-      return;
-    }
-
-    showAlert('warning', `음성 인식 오류: ${event.error}`);
-  };
-
-  recognition.onend = () => {
-    addDebugEntry('onend', 'micro arrêté');
-    STATE.isListening = false;
-    
-    // Clear any pending silence timeout
-    if (silenceTimeout) {
-      clearTimeout(silenceTimeout);
-      silenceTimeout = null;
-    }
-    
-    // Samsung/Android fallback: if we have interim text that wasn't processed, send it
-    if (lastInterimText && !hasProcessedFinalResult) {
-      addDebugEntry('onend', `envoi texte restant: "${lastInterimText}"`);
-      hasProcessedFinalResult = true;
-      processUserInput(lastInterimText);
-      elements.transcription.textContent = '';
-      lastInterimText = '';
-    }
-    
-    if (STATE.isProcessing) {
-      // Keep in processing state until API response.
-      return;
-    }
-    setMicState('idle');
-    elements.transcriptionIndicator.textContent = '마이크 정지';
-  };
-}
-
-function startListening() {
-  if (!recognition || STATE.isListening) return;
-  try {
-    recognition.start();
-  } catch (error) {
-    console.warn('Unable to start recognition', error);
-  }
-}
-
-function stopListening() {
-  if (!recognition || !STATE.isListening) return;
-  
-  // Clear any pending silence timeout
-  if (silenceTimeout) {
-    clearTimeout(silenceTimeout);
-    silenceTimeout = null;
-  }
-  
-  recognition.stop();
-}
-
-function toggleListening() {
-  if (STATE.isListening) {
-    stopListening();
-  } else {
-    // Unlock audio context on first mic click (for mobile TTS)
-    unlockAudioContext();
-    startListening();
-  }
-}
-
-//#endregion
-
-//#region API interaction + conversation flow
-async function processUserInput(text) {
-  if (!text) return;
-
-  // Add user message to the UI
-  addMessage('user', text);
-
-  // Fluency metrics update
-  const fluency = analyzeFluency(text);
-  STATE.session.totalUserWords += fluency.wordCount;
-  STATE.session.totalUserResponses += 1;
-  STATE.session.exchangeCount += 1;
-
-  const unitContext = getUnit(STATE.unitId);
-  const context = getSessionContext(STATE.unitId, parseInt(unitContext?.snu_level?.[3] || '3', 10) || 3);
-  const systemPrompt = generateSystemPrompt(context, STATE.mode);
-
-  STATE.isProcessing = true;
-  if (getInputMode() === 'voice') {
-    setMicState('processing');
-  }
-  showTypingIndicator(true);
-
-  try {
-    const result = await callAnthropicAPI(text, conversationManager, systemPrompt);
-
-    if (!result.success) {
-      if (result.error === 'INVALID_API_KEY') {
-        showAlert('error', 'API 키가 잘못되었습니다. 다시 입력해주세요.');
-        showApiModal();
-      } else if (result.error === 'API_KEY_MISSING') {
-        showApiModal();
-      } else {
-        showAlert('error', `API 요청 실패: ${result.details || result.error}`);
-      }
-      return;
-    }
-
-    addMessage('assistant', result.response);
-
-    // TTS: Read companion's response aloud if enabled
-    speak(result.response);
-
-    // Track detected structures, if any
-    const detected = detectTargetStructures(text, unitContext.targetGrammar || []);
-    detected.forEach((s) => STATE.session.structureHits.add(s));
-
-    // Mark unit completed once user responds 3 times in this unit
-    if (STATE.session.exchangeCount >= 3) {
-      const progress = getProgressData();
-      progress.completedUnits[STATE.unitId] = true;
-      saveProgressData(progress);
-    }
-
-    updateFluencyIndicator();
-
-  } catch (e) {
-    console.error(e);
-    showAlert('error', '질문 처리 중 오류가 발생했습니다.');
-  } finally {
-    STATE.isProcessing = false;
-    showTypingIndicator(false);
-    if (getInputMode() === 'voice') {
-      setMicState('idle');
-    } else {
-      // Re-enable text send button
-      elements.textSendBtn.disabled = false;
-    }
-  }
-}
-
-// Add API key modal functions
-function showApiModal() {
-  elements.apiModal.classList.remove('modal-overlay--hidden');
-}
-
-function hideApiModal() {
-  elements.apiModal.classList.add('modal-overlay--hidden');
-}
-
-function applyApiKey() {
-  const key = elements.apiInput.value.trim();
-  if (!key) {
-    showAlert('warning', 'API 키를 입력해주세요.');
-    return;
-  }
-
-  const saved = setApiKey(key);
-  if (saved) {
-    hideApiModal();
-    showAlert('success', 'API 키 저장 완료');
-  } else {
-    showAlert('error', 'API 키 저장 실패');
-  }
-}
-
-//#endregion
-
-//#region Initialization
-function initApp() {
-  conversationManager = new ConversationManager();
-  STATE.session.sessionStart = Date.now();
-
-  // Initialize TTS
-  initVoice();
-  updateTtsButton();
-
-  // Re-initialize voices if they're loaded later
-  window.speechSynthesis.addEventListener('voiceschanged', initVoice);
-
-  // Make debug functions globally available
-  window.toggleDebugPanel = toggleDebugPanel;
-
-  // Debug keyboard shortcut (Ctrl+Shift+D)
-  document.addEventListener('keydown', (e) => {
-    if (e.ctrlKey && e.shiftKey && e.key === 'D') {
-      e.preventDefault();
-      toggleDebugPanel();
-    }
-  });
-
-  // Initial debug log
-  addDebugEntry('init', 'Speech API Debug initialisé (Ctrl+Shift+D pour afficher/masquer)');
-
-  // Initialize input mode
-  updateInputMode();
-
-  // Register DOM events
-  elements.micButton.addEventListener('click', toggleListening);
-  elements.nextQuestionButton.addEventListener('click', () => nextQuestion());
-  elements.ttsToggle.addEventListener('click', () => setTtsEnabled(!isTtsEnabled()));
-  
-  // Input mode events
-  elements.inputModeBtns.forEach(btn => {
-    btn.addEventListener('click', () => setInputMode(btn.dataset.mode));
-  });
-  
-  elements.textSendBtn.addEventListener('click', sendTextInput);
-  
-  elements.textInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendTextInput();
-    }
-  });
-
-  elements.navTabs.forEach(tab => {
-    tab.addEventListener('click', () => updateMode(tab.dataset.mode));
-  });
-
-  elements.apiSaveButton.addEventListener('click', applyApiKey);
-  elements.apiCancelButton.addEventListener('click', () => {
-    if (!getApiKey()) {
-      showAlert('error', 'API 키가 필요합니다. 앱을 재실행 후 입력해 주세요.');
-    }
-    hideApiModal();
-  });
-
-  initSpeechRecognition();
-
-  const apiKey = getApiKey();
-  if (!apiKey) {
-    showApiModal();
-  }
-
-  updateMode(STATE.mode);
-  setMicState('idle');
-  updateFluencyIndicator();
-
-  window.addEventListener('beforeunload', () => {
-    const score = STATE.session.totalUserResponses === 0 ? 0 : Math.round(STATE.session.totalUserWords / STATE.session.totalUserResponses);
-    recordFluencySession(score, STATE.session.totalUserWords, STATE.session.exchangeCount);
-  });
-}
-
-initApp();
+// Initialize login form event listener
+document.getElementById('loginForm').addEventListener('submit', handleLogin);
 
 //#endregion

@@ -109,9 +109,10 @@ async function requestApiKeyFromUser() {
  *   - allTargetStructures: all structures for this level
  *   - vocabulary: unit vocabulary
  * @param {string} mode - Practice mode (freeChat, debate, speaking, speedDrill)
+ * @param {string} [debateFormat] - Optional debate format (proCon, qa, presentation)
  * @returns {string} System prompt for Claude
  */
-function generateSystemPrompt(context, mode) {
+function generateSystemPrompt(context, mode, debateFormat = 'proCon') {
   const { unit, targetLevel, targetStructures, allTargetStructures, vocabulary } = context;
   
   const levelNames = {
@@ -148,6 +149,24 @@ Mode: SPEED DRILL (속도 드릴)
 - Accept short answers; don't ask for elaboration
 - Move to next question quickly
 - Focus on reducing hesitation, not perfection`
+  };
+  
+  const debateFormatInstructions = {
+    proCon: `
+Debate format: 찬반 토론
+- Ask the learner to choose a position in favor or against the topic.
+- Take the opposite side from the learner and challenge their arguments.
+- Respond with structured rebuttals and invite the learner to strengthen their position.`,
+    qa: `
+Debate format: 질문-답변
+- Pose structured questions about the topic.
+- Let the learner answer and expand on each point.
+- Guide the conversation with follow-up prompts rather than long monologues.`,
+    presentation: `
+Debate format: 발표 연습
+- Ask the learner to present their view on the topic.
+- Listen carefully and then provide structured feedback.
+- Comment on content, fluency, and clarity in a supportive way.`
   };
 
   const structureContext = targetStructures && targetStructures.length > 0
@@ -192,17 +211,39 @@ CORRECTION PROTOCOL
 Rule 1: Correct ONLY if error blocks meaning
   ✗ DO NOT: Comment on small errors (wrong particle, minor grammar)
   ✓ DO: Rephrase naturally if major confusion (wrong tense affecting story)
-  
+
 Rule 2: Maximum 1 correction per exchange
   - If multiple errors exist, pick the one blocking understanding
 
 Rule 3: Natural reframing, never "metalanguage"
   ✓ GOOD: "아, 매일 운동을 하는 데에 정말 좋군요!"
   ✗ BAD: "You said X, it should be Y"
-  
+
 Rule 4: NEVER break conversational flow
   - Correction must feel like natural response continuation
   - User should barely notice it was corrected
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RÉPONSE FORMAT OBLIGATOIRE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+TU DOIS TOUJOURS RETOURNER EXACTEMENT 2 PARTIES SÉPARÉES :
+
+PARTIE 1: RÉPONSE CONVERSATIONNELLE
+[Réponse normale de KoCo en coréen, encourageante et naturelle]
+
+---
+CORRECTION:
+[Bloc de correction formaté, ou message positif si correct]
+
+FORMAT DE CORRECTION (si correction nécessaire):
+💬 Ta phrase : "[phrase originale de l'utilisateur]"
+✅ Naturel : "[version corrigée naturelle]"
+🔧 Point : [explication courte en français, encourageante]
+
+Si la phrase est parfaite: "✅ 자연스러워요! 잘 하셨어요."
+
+Maximum 2 corrections par message utilisateur.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 FOLLOW-UP STRATEGY
@@ -235,6 +276,7 @@ NEVER use grammatical metalanguage in conversation ("이건 5A 문법이에요" 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ${modeInstructions[mode] || modeInstructions.freeChat}
+${mode === 'debate' ? (debateFormatInstructions[debateFormat] || debateFormatInstructions.proCon) : ''}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 SESSION CONTEXT
@@ -247,7 +289,9 @@ FINAL REMINDER
 
 Your responses should feel like a natural conversation with a supportive Korean friend.
 Never feel like a teacher. Never use English unless learner uses it first.
-Encourage flow above all else.`;
+Encourage flow above all else.
+
+RETURNS FORMAT: Toujours séparer avec "---\nCORRECTION:"`
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -377,7 +421,11 @@ async function callAnthropicAPI(userMessage, conversationManager, systemPrompt) 
   };
   
   if (isLocal) {
-    // Local proxy expects x-api-key header
+    // Local proxy expects authorization header with Supabase token
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      headers['Authorization'] = `Bearer ${session.access_token}`;
+    }
     headers['x-api-key'] = apiKey;
     headers['anthropic-version'] = '2023-06-01';
   } else {

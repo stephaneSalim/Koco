@@ -557,6 +557,229 @@ const UNITS = {
         "뭐가 가장 좋았어요?"
       ]
     }
+  },
+
+  // UNIT 5-1: 기후 변화 (Climate Change) — SCAFFOLD
+  unit_5_1: {
+    id: "unit_5_1",
+    title: "기후 변화",
+    subtitle: "Climate Change",
+    theme: "Global warming and climate impacts",
+    snu_level: "5A_5-1",
+    
+    vocabulary: [],
+    targetGrammar: ["-는 데(에) 좋다", "-게 되다"],
+    
+    questions: {
+      freeChat: ["기후 변화의 영향을 느껴본 적 있어요?", "우리가 할 수 있는 게 뭐예요?"],
+      debate: ["산업이 환경보다 중요할까요?"],
+      speaking: ["기후 변화 문제를 설명해 보세요."],
+      speedDrill: ["날씨가 어떻게 변했어요?", "가장 큰 문제가 뭐예요?"]
+    }
+  },
+
+  // UNIT 5-2: 독특한 지형 (Unique Landscape) — SCAFFOLD
+  unit_5_2: {
+    id: "unit_5_2",
+    title: "독특한 지형",
+    subtitle: "Unique Landscape",
+    theme: "Geography and tourism",
+    snu_level: "5A_5-2",
+    
+    vocabulary: [],
+    targetGrammar: ["-던", "-았/었던"],
+    
+    questions: {
+      freeChat: ["가본 지형 중 가장 아름다운 게 뭐예요?", "특이한 풍경을 소개해 보세요."],
+      debate: ["관광지 개발이 필요할까요?"],
+      speaking: ["아름다운 풍경지를 소개해 보세요."],
+      speedDrill: ["가장 좋은 여행지가 어딜까요?", "언제 그곳을 알게 됐어요?"]
+    }
+  },
+
+  // UNIT 6-1: 도시와 환경 (City & Environment) — SCAFFOLD
+  unit_6_1: {
+    id: "unit_6_1",
+    title: "도시와 환경",
+    subtitle: "City & Environment",
+    theme: "Urban sustainability",
+    snu_level: "5A_6-1",
+    
+    vocabulary: [],
+    targetGrammar: ["-을뿐더러", "-는 반면에"],
+    
+    questions: {
+      freeChat: ["도시 생활의 장단점이 뭐예요?", "도시를 더 환경 친화적으로 만들려면?"],
+      debate: ["대도시 집중이 필요할까요?"],
+      speaking: ["도시 문제와 해결책을 설명해 보세요."],
+      speedDrill: ["도시의 장점이 뭐예요?", "가장 큰 문제는?"]
+    }
+  },
+
+  // UNIT 6-2: 주거 공간 (Living Space) — SCAFFOLD
+  unit_6_2: {
+    id: "unit_6_2",
+    title: "주거 공간",
+    subtitle: "Living Space",
+    theme: "Housing and interior design",
+    snu_level: "5A_6-2",
+    
+    vocabulary: [],
+    targetGrammar: ["-도록 하다", "-게"],
+    
+    questions: {
+      freeChat: ["이상적인 집이 어떤 모습일까요?", "주거 환경이 삶에 미치는 영향은?"],
+      debate: ["집은 투자일까, 살기 위한 것일까요?"],
+      speaking: ["자신의 집을 소개해 보세요."],
+      speedDrill: ["어떤 집에서 살고 싶어요?", "가장 중요한 게 뭐예요?"]
+    }
+  },
+
+  // UNIT 7-1: 인간관계와 심리 (Relationships & Psychology) — SCAFFOLD
+  unit_7_1: {
+    id: "unit_7_1",
+    title: "인간관계와 심리",
+    subtitle: "Relationships & Psychology",
+    theme: "Social psychology and connections",
+    snu_level: "5A_7-1",
+    
+    vocabulary: [],
+    targetGrammar: ["-더라고요", "-는 것 같다"],
+    
+    questions: {
+      freeChat: ["인간관계에서 가장 중요한 게 뭐예요?", "심리 건강은 어떻게 유지해요?"],
+      debate: ["혼자가 편할까요, 함께가 편할까요?"],
+      speaking: ["좋은 인간관계를 유지하는 방법을 설명해 보세요."],
+      speedDrill: ["신뢰가 중요할까요?", "갈등을 어떻게 해결해요?"]
+    }
+  },
+
+  // UNIT 7-2: 심리와 성격 (Psychology & Personality) — SCAFFOLD
+  unit_7_2: {
+    id: "unit_7_2",
+    title: "심리와 성격",
+    subtitle: "Psychology & Personality",
+    theme: "Personality type and development",
+    snu_level: "5A_7-2",
+    
+    vocabulary: [],
+    targetGrammar: ["--(으)ㄴ 것은", "-기로 하다"],
+    
+    questions: {
+      freeChat: ["자신의 성격을 어떻게 표현해요?", "성격을 바꿀 수 있을까요?"],
+      debate: ["타고난 성격과 노력, 뭐가 더 중요할까요?"],
+      speaking: ["자신의 성격과 성장 경험을 이야기해 보세요."],
+      speedDrill: ["가장 좋은 성격 특성이 뭐예요?", "앞으로 바꾸고 싶은 게?"]
+    }
+  },
+
+  // UNIT 8-1: 평생 직업 (Lifelong Career) — SCAFFOLD
+  unit_8_1: {
+    id: "unit_8_1",
+    title: "평생 직업",
+    subtitle: "Lifelong Career",
+    theme: "Career development and growth",
+    snu_level: "5A_8-1",
+    
+    vocabulary: [],
+    targetGrammar: ["-도록", "-으로써"],
+    
+    questions: {
+      freeChat: ["커리어 계획이 있어요?", "일에서 가치를 어디서 찾아요?"],
+      debate: ["자기 일을 사랑하는 게 중요할까요?"],
+      speaking: ["커리어 목표와 그걸 이루기 위한 계획을 설명해 보세요."],
+      speedDrill: ["어떤 일이 하고 싶어요?", "성공을 어떻게 정의해요?"]
+    }
+  },
+
+  // UNIT 8-2: 변화하는 직업 (Changing Jobs) — SCAFFOLD
+  unit_8_2: {
+    id: "unit_8_2",
+    title: "변화하는 직업",
+    subtitle: "Changing Jobs",
+    theme: "Future of work",
+    snu_level: "5A_8-2",
+    
+    vocabulary: [],
+    targetGrammar: ["-게 되다", "-는 데(에)"],
+    
+    questions: {
+      freeChat: ["미래 직업이 어떻게 변할 거 같아요?", "기술이 직업을 대체할까요?"],
+      debate: ["AI 시대에 인간만이 할 수 있는 일이 뭘까요?"],
+      speaking: ["미래 직업 시장의 변화를 예측해 보세요."],
+      speedDrill: ["가장 유망한 직업이 뭐예요?", "어떻게 준비해야 해요?"]
+    }
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CHAPTERS METADATA — SNU Korean 5A Structure
+// ═══════════════════════════════════════════════════════════════════════════
+
+const CHAPTERS = {
+  1: {
+    major: 1,
+    title: "건강한 삶",
+    lessons: {
+      1: { id: "unit_1_1", title: "음식과 영양" },
+      2: { id: "unit_1_2", title: "건강한 신체" }
+    }
+  },
+  2: {
+    major: 2,
+    title: "행복과 휴식",
+    lessons: {
+      1: { id: "unit_2_1", title: "생활 습관" },
+      2: { id: "unit_2_2", title: "환경 의식" }
+    }
+  },
+  3: {
+    major: 3,
+    title: "언어와 학습",
+    lessons: {
+      1: { id: "unit_3_1", title: "직업과 꿈" },
+      2: { id: "unit_3_2", title: "관계와 소통" }
+    }
+  },
+  4: {
+    major: 4,
+    title: "사고와 고정 관념",
+    lessons: {
+      1: { id: "unit_4_1", title: "문화와 예술" },
+      2: { id: "unit_4_2", title: "여행과 경험" }
+    }
+  },
+  5: {
+    major: 5,
+    title: "기후와 지형",
+    lessons: {
+      1: { id: "unit_5_1", title: "기후 변화" },
+      2: { id: "unit_5_2", title: "독특한 지형" }
+    }
+  },
+  6: {
+    major: 6,
+    title: "환경과 주거 공간",
+    lessons: {
+      1: { id: "unit_6_1", title: "도시와 환경" },
+      2: { id: "unit_6_2", title: "주거 공간" }
+    }
+  },
+  7: {
+    major: 7,
+    title: "인간과 심리",
+    lessons: {
+      1: { id: "unit_7_1", title: "인간관계와 심리" },
+      2: { id: "unit_7_2", title: "심리와 성격" }
+    }
+  },
+  8: {
+    major: 8,
+    title: "직업의 미래",
+    lessons: {
+      1: { id: "unit_8_1", title: "평생 직업" },
+      2: { id: "unit_8_2", title: "변화하는 직업" }
+    }
   }
 };
 
