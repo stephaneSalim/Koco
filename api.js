@@ -422,7 +422,7 @@ async function callAnthropicAPI(userMessage, conversationManager, systemPrompt) 
   
   if (isLocal) {
     // Local proxy expects authorization header with Supabase token
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await window.supabase.auth.getSession();
     if (session?.access_token) {
       headers['Authorization'] = `Bearer ${session.access_token}`;
     }

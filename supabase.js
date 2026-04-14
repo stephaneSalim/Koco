@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+// Supabase client loaded via CDN - available as window.supabase
 
 const supabaseUrl = 'https://jxbqlphxsgglrlznpall.supabase.co'
 const supabaseAnonKey = 'sb_publishable_ZrgImoU54nnrdQnxKboadg_0AFHj1cN'
@@ -6,10 +6,14 @@ const supabaseAnonKey = 'sb_publishable_ZrgImoU54nnrdQnxKboadg_0AFHj1cN'
 console.log('Supabase URL:', supabaseUrl); // Debug log
 console.log('Supabase Key exists:', !!supabaseAnonKey); // Debug log
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+// Use Supabase from CDN (window.supabase)
+const supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey)
+
+// Export for compatibility (will be global)
+window.supabaseClient = supabase
 
 // Helper functions for authentication
-export const auth = {
+window.auth = {
   // Sign in with Google OAuth
   async signInWithGoogle() {
     console.log('signInWithGoogle called'); // Debug log
@@ -44,7 +48,7 @@ export const auth = {
 }
 
 // Helper functions for database operations
-export const db = {
+window.db = {
   // Users
   async getUser(userId) {
     const { data, error } = await supabase

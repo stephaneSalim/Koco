@@ -3,8 +3,7 @@
  * app.js — Application logic, modes, speech recognition, Supabase auth & data
  */
 
-// Import Supabase client
-import { supabase, auth, db } from './supabase.js';
+// Supabase client and functions available globally from CDN
 
 //#region App state
 const STATE = {
@@ -64,7 +63,7 @@ let silenceTimeout = null; // Timeout for silence detection
 async function initAuth() {
   try {
     // Check for existing session
-    const { data: { session }, error } = await supabase.auth.getSession();
+    const { data: { session }, error } = await window.supabase.auth.getSession();
 
     if (session && session.user) {
       STATE.user = session.user;
@@ -76,7 +75,7 @@ async function initAuth() {
     }
 
     // Listen for auth changes
-    supabase.auth.onAuthStateChange(async (event, session) => {
+    window.supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session) {
         STATE.user = session.user;
         showMainApp();
@@ -135,7 +134,7 @@ async function handleGoogleLogin() {
   messageEl.textContent = '';
 
   try {
-    const { error } = await auth.signInWithGoogle();
+    const { error } = await window.auth.signInWithGoogle();
 
     if (error) {
       throw error;
@@ -176,7 +175,7 @@ function showLoginMessage(message, type) {
  */
 async function handleLogout() {
   try {
-    await auth.signOut();
+    await window.auth.signOut();
   } catch (error) {
     console.error('Erreur de déconnexion:', error);
   }
@@ -1053,7 +1052,7 @@ async function processUserInput(text) {
         created_at: new Date().toISOString()
       };
 
-      const { data: session, error } = await db.createSession(sessionData);
+      const { data: session, error } = await window.db.createSession(sessionData);
       if (session) {
         STATE.session.supabaseSessionId = session.id;
         addDebugEntry('session', `Session Supabase créée: ${session.id}`);
@@ -1067,7 +1066,7 @@ async function processUserInput(text) {
     // Update session duration
     try {
       const duration = Math.floor((Date.now() - STATE.session.sessionStart) / 1000);
-      await db.updateSession(STATE.session.supabaseSessionId, {
+      await window.db.updateSession(STATE.session.supabaseSessionId, {
         duration_seconds: duration
       });
     } catch (error) {
@@ -1152,31 +1151,6 @@ async function processUserInput(text) {
       // Re-enable action button after processing
       elements.inputBarActionBtn.disabled = false;
     }
-  }
-}
-
-// Add API key modal functions
-function showApiModal() {
-  elements.apiModal.classList.remove('modal-overlay--hidden');
-}
-
-function hideApiModal() {
-  elements.apiModal.classList.add('modal-overlay--hidden');
-}
-
-function applyApiKey() {
-  const key = elements.apiInput.value.trim();
-  if (!key) {
-    showAlert('warning', 'API 키를 입력해주세요.');
-    return;
-  }
-
-  const saved = setApiKey(key);
-  if (saved) {
-    hideApiModal();
-    showAlert('success', 'API 키 저장 완료');
-  } else {
-    showAlert('error', 'API 키 저장 실패');
   }
 }
 

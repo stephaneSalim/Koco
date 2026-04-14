@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🇰🇷</text></svg>" />
   <title>KoCo - Korean Conversation Companion</title>
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -44,9 +45,6 @@
     </div>
 
     <!-- MAIN APP CONTENT -->
-    <div id="mainApp" style="display: none;">
-
-    <!-- MAIN APP (hidden initially) -->
     <div id="mainApp" style="display: none;">
       <div class="debug-panel__header">
         <span>🔧 Speech API Debug</span>
@@ -242,6 +240,7 @@
   </div>
 
   <!-- Scripts (Order matters!) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script type="module" src="data.js"></script>
   <script type="module" src="api.js"></script>
   <script type="module" src="supabase.js"></script>
