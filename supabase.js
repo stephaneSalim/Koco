@@ -7,10 +7,7 @@ console.log('Supabase URL:', supabaseUrl); // Debug log
 console.log('Supabase Key exists:', !!supabaseAnonKey); // Debug log
 
 // Use Supabase from CDN (window.supabase)
-const supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey)
-
-// Export for compatibility (will be global)
-window.supabaseClient = supabase
+window.supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnonKey)
 
 // Helper functions for authentication
 window.auth = {
@@ -18,7 +15,7 @@ window.auth = {
   async signInWithGoogle() {
     console.log('signInWithGoogle called'); // Debug log
 
-    const { data, error } = await supabase.auth.signInWithOAuth({
+    const { data, error } = await window.supabaseClient.auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: 'https://koco-xi.vercel.app'
@@ -32,18 +29,18 @@ window.auth = {
 
   // Sign out
   async signOut() {
-    const { error } = await supabase.auth.signOut()
+    const { error } = await window.supabaseClient.auth.signOut()
     return { error }
   },
 
   // Get current user
   getCurrentUser() {
-    return supabase.auth.getUser()
+    return window.supabaseClient.auth.getUser()
   },
 
   // Listen to auth state changes
   onAuthStateChange(callback) {
-    return supabase.auth.onAuthStateChange(callback)
+    return window.supabaseClient.auth.onAuthStateChange(callback)
   }
 }
 
@@ -51,7 +48,7 @@ window.auth = {
 window.db = {
   // Users
   async getUser(userId) {
-    const { data, error } = await supabase
+    const { data, error } = await window.supabaseClient
       .from('users')
       .select('*')
       .eq('id', userId)
@@ -60,7 +57,7 @@ window.db = {
   },
 
   async createUser(userData) {
-    const { data, error } = await supabase
+    const { data, error } = await window.supabaseClient
       .from('users')
       .insert(userData)
       .select()
@@ -70,7 +67,7 @@ window.db = {
 
   // Sessions
   async createSession(sessionData) {
-    const { data, error } = await supabase
+    const { data, error } = await window.supabaseClient
       .from('sessions')
       .insert(sessionData)
       .select()
@@ -79,7 +76,7 @@ window.db = {
   },
 
   async updateSession(sessionId, updates) {
-    const { data, error } = await supabase
+    const { data, error } = await window.supabaseClient
       .from('sessions')
       .update(updates)
       .eq('id', sessionId)
@@ -90,7 +87,7 @@ window.db = {
 
   // User progress
   async getUserProgress(userId) {
-    const { data, error } = await supabase
+    const { data, error } = await window.supabaseClient
       .from('user_progress')
       .select(`
         *,
@@ -114,7 +111,7 @@ window.db = {
   },
 
   async updateUserProgress(progressData) {
-    const { data, error } = await supabase
+    const { data, error } = await window.supabaseClient
       .from('user_progress')
       .upsert(progressData, { onConflict: 'user_id,lesson_id' })
       .select()

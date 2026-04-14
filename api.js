@@ -14,9 +14,8 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 const API_CONFIG = {
-  STORAGE_KEY: 'anthropic_api_key',
-  PROXY_ENDPOINT: 'http://localhost:3000/api/chat',
-  DIRECT_ENDPOINT: 'https://api.anthropic.com/v1/messages',
+  STORAGE_KEY: 'koco_anthropic_api_key',
+  API_ENDPOINT: 'https://api.anthropic.com/v1/messages',
   MODEL: 'claude-sonnet-4-20250514'
 };
 
@@ -64,24 +63,6 @@ function clearApiKey() {
 }
 
 /**
- * Detect if running on localhost (development) or production (GitHub Pages)
- * @returns {boolean} True if localhost, false if production
- */
-function isLocalhost() {
-  return window.location.hostname === 'localhost' || 
-         window.location.hostname === '127.0.0.1' ||
-         window.location.hostname === '';
-}
-
-/**
- * Get the appropriate API endpoint based on environment
- * @returns {string} API endpoint URL
- */
-function getApiEndpoint() {
-  return isLocalhost() ? API_CONFIG.PROXY_ENDPOINT : API_CONFIG.DIRECT_ENDPOINT;
-}
-
-/**
  * Request API key from user (UI integration point)
  * Returns true if user provided a key, false if cancelled
  * @returns {Promise<boolean>}
@@ -109,10 +90,9 @@ async function requestApiKeyFromUser() {
  *   - allTargetStructures: all structures for this level
  *   - vocabulary: unit vocabulary
  * @param {string} mode - Practice mode (freeChat, debate, speaking, speedDrill)
- * @param {string} [debateFormat] - Optional debate format (proCon, qa, presentation)
  * @returns {string} System prompt for Claude
  */
-function generateSystemPrompt(context, mode, debateFormat = 'proCon') {
+function generateSystemPrompt(context, mode) {
   const { unit, targetLevel, targetStructures, allTargetStructures, vocabulary } = context;
   
   const levelNames = {
@@ -149,24 +129,6 @@ Mode: SPEED DRILL (속도 드릴)
 - Accept short answers; don't ask for elaboration
 - Move to next question quickly
 - Focus on reducing hesitation, not perfection`
-  };
-  
-  const debateFormatInstructions = {
-    proCon: `
-Debate format: 찬반 토론
-- Ask the learner to choose a position in favor or against the topic.
-- Take the opposite side from the learner and challenge their arguments.
-- Respond with structured rebuttals and invite the learner to strengthen their position.`,
-    qa: `
-Debate format: 질문-답변
-- Pose structured questions about the topic.
-- Let the learner answer and expand on each point.
-- Guide the conversation with follow-up prompts rather than long monologues.`,
-    presentation: `
-Debate format: 발표 연습
-- Ask the learner to present their view on the topic.
-- Listen carefully and then provide structured feedback.
-- Comment on content, fluency, and clarity in a supportive way.`
   };
 
   const structureContext = targetStructures && targetStructures.length > 0
@@ -211,39 +173,17 @@ CORRECTION PROTOCOL
 Rule 1: Correct ONLY if error blocks meaning
   ✗ DO NOT: Comment on small errors (wrong particle, minor grammar)
   ✓ DO: Rephrase naturally if major confusion (wrong tense affecting story)
-
+  
 Rule 2: Maximum 1 correction per exchange
   - If multiple errors exist, pick the one blocking understanding
 
 Rule 3: Natural reframing, never "metalanguage"
   ✓ GOOD: "아, 매일 운동을 하는 데에 정말 좋군요!"
   ✗ BAD: "You said X, it should be Y"
-
+  
 Rule 4: NEVER break conversational flow
   - Correction must feel like natural response continuation
   - User should barely notice it was corrected
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-RÉPONSE FORMAT OBLIGATOIRE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-TU DOIS TOUJOURS RETOURNER EXACTEMENT 2 PARTIES SÉPARÉES :
-
-PARTIE 1: RÉPONSE CONVERSATIONNELLE
-[Réponse normale de KoCo en coréen, encourageante et naturelle]
-
----
-CORRECTION:
-[Bloc de correction formaté, ou message positif si correct]
-
-FORMAT DE CORRECTION (si correction nécessaire):
-💬 Ta phrase : "[phrase originale de l'utilisateur]"
-✅ Naturel : "[version corrigée naturelle]"
-🔧 Point : [explication courte en français, encourageante]
-
-Si la phrase est parfaite: "✅ 자연스러워요! 잘 하셨어요."
-
-Maximum 2 corrections par message utilisateur.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 FOLLOW-UP STRATEGY
@@ -276,7 +216,6 @@ NEVER use grammatical metalanguage in conversation ("이건 5A 문법이에요" 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ${modeInstructions[mode] || modeInstructions.freeChat}
-${mode === 'debate' ? (debateFormatInstructions[debateFormat] || debateFormatInstructions.proCon) : ''}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 SESSION CONTEXT
@@ -289,9 +228,7 @@ FINAL REMINDER
 
 Your responses should feel like a natural conversation with a supportive Korean friend.
 Never feel like a teacher. Never use English unless learner uses it first.
-Encourage flow above all else.
-
-RETURNS FORMAT: Toujours séparer avec "---\nCORRECTION:"`
+Encourage flow above all else.`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -412,32 +349,14 @@ async function callAnthropicAPI(userMessage, conversationManager, systemPrompt) 
     messages: messages
   };
 
-  // Choose endpoint and headers based on environment
-  const isLocal = isLocalhost();
-  const endpoint = getApiEndpoint();
-  
-  const headers = {
-    'Content-Type': 'application/json'
-  };
-  
-  if (isLocal) {
-    // Local proxy expects authorization header with Supabase token
-    const { data: { session } } = await window.supabase.auth.getSession();
-    if (session?.access_token) {
-      headers['Authorization'] = `Bearer ${session.access_token}`;
-    }
-    headers['x-api-key'] = apiKey;
-    headers['anthropic-version'] = '2023-06-01';
-  } else {
-    // Direct API call uses Authorization header
-    headers['Authorization'] = `Bearer ${apiKey}`;
-    headers['anthropic-version'] = '2023-06-01';
-  }
-
   try {
-    const response = await fetch(endpoint, {
+    const response = await fetch(API_CONFIG.API_ENDPOINT, {
       method: 'POST',
-      headers: headers,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01'
+      },
       body: JSON.stringify(requestPayload)
     });
 
@@ -472,10 +391,6 @@ async function callAnthropicAPI(userMessage, conversationManager, systemPrompt) 
     }
 
     const data = await response.json();
-    if (!data || !data.content || data.content.length === 0) {
-      console.error('Réponse API inattendue:', JSON.stringify(data));
-      return '죄송해요, 다시 시도해 보세요.';
-    }
     const assistantMessage = data.content[0].text;
 
     // Update conversation history
@@ -550,19 +465,7 @@ function analyzeFluency(userResponse) {
 // EXPORT
 // ═══════════════════════════════════════════════════════════════════════════
 
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    // API key management
-    hasApiKey,
-    getApiKey,
-    setApiKey,
-    clearApiKey,
-    requestApiKeyFromUser,
-    // System prompt
-    generateSystemPrompt,
-    // Conversation management
-    ConversationManager,
-    // API communication
+/* module.exports removed for browser global loading */
     callAnthropicAPI,
     // Response analysis
     detectTargetStructures,
