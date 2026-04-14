@@ -7,12 +7,12 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 // Helper functions for authentication
 export const auth = {
-  // Sign in with magic link
-  async signInWithEmail(email) {
-    const { data, error } = await supabase.auth.signInWithOtp({
-      email,
+  // Sign in with Google OAuth
+  async signInWithGoogle() {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
       options: {
-        emailRedirectTo: window.location.origin
+        redirectTo: 'https://koco-xi.vercel.app'
       }
     })
     return { data, error }

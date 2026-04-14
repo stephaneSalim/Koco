@@ -89,48 +89,41 @@ input, button, textarea, select {
   line-height: 1.4;
 }
 
-.login-form-element {
+.login-google-container {
   display: flex;
-  flex-direction: column;
-  gap: 1rem;
+  justify-content: center;
+  margin-bottom: 1rem;
 }
 
-.login-input {
-  padding: 1rem;
-  border: 2px solid #e1e5e9;
-  border-radius: 8px;
-  font-size: 1rem;
+.login-google-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 12px 24px;
   background: white;
-  color: #1a1a1a;
-  transition: border-color 0.2s;
-}
-
-.login-input:focus {
-  outline: none;
-  border-color: #667eea;
-}
-
-.login-button {
-  padding: 1rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 1rem;
-  font-weight: 600;
+  color: #3c4043;
+  border: 1px solid #dadce0;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
-  transition: transform 0.1s, opacity 0.2s;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-.login-button:hover {
-  transform: translateY(-1px);
-  opacity: 0.95;
+.login-google-button:hover {
+  background: #f8f9fa;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
-.login-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
+.login-google-button:active {
+  transform: scale(0.98);
+}
+
+.login-google-icon {
+  width: 18px;
+  height: 18px;
 }
 
 .login-message {
