@@ -461,14 +461,3 @@ function analyzeFluency(userResponse) {
   };
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// EXPORT
-// ═══════════════════════════════════════════════════════════════════════════
-
-/* module.exports removed for browser global loading */
-    callAnthropicAPI,
-    // Response analysis
-    detectTargetStructures,
-    analyzeFluency
-  };
-}
