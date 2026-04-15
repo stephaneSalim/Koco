@@ -10,6 +10,15 @@ console.log('Supabase Key exists:', !!supabaseAnonKey); // Debug log
 window.supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnonKey)
 
 // Helper functions for authentication
+function handleGoogleLogin() {
+  window.supabaseClient.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: window.location.origin
+    }
+  });
+}
+
 window.auth = {
   // Sign in with Google OAuth
   async signInWithGoogle() {
@@ -18,7 +27,7 @@ window.auth = {
     const { data, error } = await window.supabaseClient.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: 'https://koco-xi.vercel.app'
+        redirectTo: window.location.origin
       }
     })
 
