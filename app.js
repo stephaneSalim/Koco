@@ -58,37 +58,8 @@ const elements = {
   apiCancelButton: document.querySelector('.modal__button--secondary'),
   alertArea: document.querySelector('.alert-area'),
   typingIndicator: document.querySelector('.typing-indicator'),
-  nextQuestionButton: document.querySelector('.next-question-btn'),
-  loginScreen: document.getElementById('loginScreen'),
-  appContainer: document.getElementById('app')
+  nextQuestionButton: document.querySelector('.next-question-btn')
 };
-
-function showLoginScreen() {
-  if (elements.loginScreen) elements.loginScreen.style.display = 'flex';
-  if (elements.appContainer) elements.appContainer.style.display = 'none';
-}
-
-function showAppScreen() {
-  if (elements.loginScreen) elements.loginScreen.style.display = 'none';
-  if (elements.appContainer) elements.appContainer.style.display = 'block';
-}
-
-async function checkSession() {
-  try {
-    const { data: { session }, error } = await window.supabaseClient.auth.getSession();
-    if (error) {
-      console.error('Supabase session error', error);
-    }
-    if (session?.user) {
-      showAppScreen();
-    } else {
-      showLoginScreen();
-    }
-  } catch (err) {
-    console.error('Session validation failed', err);
-    showLoginScreen();
-  }
-}
 
 //#endregion
 
@@ -469,7 +440,6 @@ function initApp() {
   });
 }
 
-checkSession();
 initApp();
 
 //#endregion
