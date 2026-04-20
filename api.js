@@ -97,7 +97,7 @@ async function requestApiKeyFromUser() {
  * @param {string} mode - Practice mode (freeChat, debate, speaking, speedDrill)
  * @returns {string} System prompt for Claude
  */
-function generateSystemPrompt(context, mode) {
+function generateSystemPrompt(context, mode, gmsSentences) {
   const { unit, targetLevel, targetStructures, allTargetStructures, vocabulary } = context;
   
   const levelNames = {
@@ -155,6 +155,19 @@ ${vocabulary.slice(0, 8).map(v => `  • ${v.korean} (${v.meaning})`).join('\n')
     ? `
 UNIT: ${unit.title} — ${unit.subtitle}
 Theme: ${unit.theme}`
+    : '';
+
+  const gmsContext = gmsSentences && gmsSentences.length > 0
+    ? `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PHRASES NATURELLES GLOSSIKA (référence)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Tu as accès aux phrases naturelles suivantes tirées de la méthode Glossika. Intègre-les naturellement dans la conversation et encourage l'utilisateur à les utiliser :
+
+${gmsSentences.map(s => `  • ${s.text_kr} — ${s.text_en}`).join('\n')}
+
+Quand l'utilisateur fait une erreur, propose la version correcte en t'inspirant de ces phrases naturelles.`
     : '';
 
   return `Tu es un compagnon de conversation coréenne spécialisé en fluidité orale.
@@ -227,6 +240,7 @@ SESSION CONTEXT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ${unitContext}${structureContext}${vocabularyContext}
 
+${gmsContext}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 FINAL REMINDER
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

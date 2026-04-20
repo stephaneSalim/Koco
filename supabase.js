@@ -29,6 +29,24 @@ async function saveCorrection(originalText, correctedText, explanation) {
 window.saveCorrection = saveCorrection;
 
 // Sauvegarder une session dans Supabase
+async function getGMSSentences(snuUnit, limit = 20) {
+  try {
+    const { data, error } = await window.supabaseClient
+      .from('gms_sentences')
+      .select('gms_id, text_kr, text_en')
+      .eq('snu_unit', snuUnit)
+      .order('gms_id')
+      .limit(limit);
+
+    if (error) throw error;
+    return data || [];
+  } catch(e) {
+    console.log('GMS load error:', e);
+    return [];
+  }
+}
+window.getGMSSentences = getGMSSentences;
+
 async function saveSession(lessonId, mode, durationSeconds) {
   try {
     await window.supabaseClient.from('sessions').insert({

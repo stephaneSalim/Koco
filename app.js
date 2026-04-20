@@ -19,7 +19,8 @@ const STATE = {
     totalUserWords: 0,
     totalUserResponses: 0,
     structureHits: new Set()
-  }
+  },
+  gmsSentences: []
 };
 
 const STORAGE_KEYS = {
@@ -435,7 +436,7 @@ async function processUserInput(text) {
 
   const unitContext = getUnit(STATE.unitId);
   const context = getSessionContext(STATE.unitId, parseInt(unitContext?.snu_level?.[3] || '3', 10) || 3);
-  const systemPrompt = generateSystemPrompt(context, STATE.mode);
+  const systemPrompt = generateSystemPrompt(context, STATE.mode, STATE.gmsSentences);
 
   STATE.isProcessing = true;
   setMicState('processing');
@@ -536,6 +537,14 @@ function initApp() {
   updateTtsButton();
 
   initSpeechRecognition();
+
+  const initUnit = getUnit(STATE.unitId);
+  if (initUnit?.snu_level && window.getGMSSentences) {
+    window.getGMSSentences(initUnit.snu_level, 15).then(sentences => {
+      STATE.gmsSentences = sentences;
+      console.log(`GMS: ${sentences.length} phrases chargées pour ${initUnit.snu_level}`);
+    });
+  }
 
   const apiKey = getApiKey();
   if (!apiKey) {
