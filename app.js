@@ -20,7 +20,8 @@ const STATE = {
     totalUserResponses: 0,
     structureHits: new Set()
   },
-  gmsSentences: []
+  gmsSentences: [],
+  isSpeaking: false
 };
 
 const STORAGE_KEYS = {
@@ -117,6 +118,11 @@ function stopTts() {
 
 function speakKorean(text) {
   return new Promise((resolve) => {
+    // Stop mic before speaking to prevent feedback loop
+    if (STATE.isListening) recognition.abort();
+    STATE.isSpeaking = true;
+    elements.micButton.disabled = true;
+
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'ko-KR';
@@ -127,9 +133,17 @@ function speakKorean(text) {
     const koreanVoice = voices.find(v => v.lang.startsWith('ko'));
     if (koreanVoice) utterance.voice = koreanVoice;
 
+    const done = () => {
+      STATE.isSpeaking = false;
+      elements.micButton.disabled = false;
+      stopTtsPulse();
+      setMicState('idle');
+      resolve();
+    };
+
     startTtsPulse();
-    utterance.onend = () => { stopTtsPulse(); resolve(); };
-    utterance.onerror = () => { stopTtsPulse(); resolve(); };
+    utterance.onend = done;
+    utterance.onerror = done;
     window.speechSynthesis.speak(utterance);
   });
 }
@@ -365,7 +379,7 @@ function initSpeechRecognition() {
 }
 
 function startListening() {
-  if (!recognition || STATE.isListening) return;
+  if (!recognition || STATE.isListening || STATE.isSpeaking) return;
   try {
     recognition.start();
   } catch (error) {
