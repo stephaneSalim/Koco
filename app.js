@@ -59,7 +59,6 @@ const elements = {
   ttsToggleButton: document.querySelector('.tts-toggle')
 };
 
-let currentAudio = null;
 let ttsPulseInterval = null;
 let ttsEnabled = localStorage.getItem('koco_tts_enabled') !== 'false';
 
@@ -110,61 +109,29 @@ function stopTtsPulse() {
 }
 
 function stopTts() {
-  if (currentAudio) {
-    currentAudio.pause();
-    currentAudio = null;
-  }
   stopTtsPulse();
   if (window.speechSynthesis) {
     window.speechSynthesis.cancel();
   }
 }
 
-async function speakWithElevenLabs(text) {
-  try {
-    const response = await fetch(API_CONFIG.TTS_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text })
-    });
-
-    console.log('TTS response status:', response.status);
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error('TTS error body:', errText);
-      throw new Error('ElevenLabs TTS failed: ' + errText);
-    }
-
-    const audioBlob = await response.blob();
-    console.log('TTS blob size:', audioBlob.size, 'type:', audioBlob.type);
-    if (audioBlob.size === 0 || !audioBlob.type.includes('audio')) {
-      console.error('TTS blob invalid — size:', audioBlob.size, 'type:', audioBlob.type);
-      throw new Error('TTS blob invalide');
-    }
-    const audioUrl = URL.createObjectURL(audioBlob);
-    const audio = new Audio(audioUrl);
-    currentAudio = audio;
-
-    audio.addEventListener('ended', () => {
-      currentAudio = null;
-      stopTtsPulse();
-      URL.revokeObjectURL(audioUrl);
-    });
-    audio.addEventListener('pause', () => {
-      stopTtsPulse();
-    });
-    audio.addEventListener('play', () => {
-      startTtsPulse();
-    });
-
-    await audio.play();
-  } catch (e) {
-    console.warn('ElevenLabs TTS failed, fallback to Web Speech API', e);
-    stopTtsPulse();
+function speakKorean(text) {
+  return new Promise((resolve) => {
+    window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'ko-KR';
+    utterance.rate = 0.9;
+    utterance.pitch = 1.0;
+
+    const voices = window.speechSynthesis.getVoices();
+    const koreanVoice = voices.find(v => v.lang.startsWith('ko'));
+    if (koreanVoice) utterance.voice = koreanVoice;
+
+    startTtsPulse();
+    utterance.onend = () => { stopTtsPulse(); resolve(); };
+    utterance.onerror = () => { stopTtsPulse(); resolve(); };
     window.speechSynthesis.speak(utterance);
-  }
+  });
 }
 
 
@@ -459,7 +426,7 @@ async function processUserInput(text) {
 
     addMessage('assistant', result.response);
     if (ttsEnabled) {
-      await speakWithElevenLabs(result.response);
+      await speakKorean(result.response);
     }
 
     // Track detected structures, if any
@@ -540,9 +507,11 @@ function initApp() {
 
   const initUnit = getUnit(STATE.unitId);
   if (initUnit?.snu_level && window.getGMSSentences) {
-    window.getGMSSentences(initUnit.snu_level, 15).then(sentences => {
+    // "5A_1-1" → "5A_1"
+    const snuUnit = initUnit.snu_level.replace(/-\d+$/, '');
+    window.getGMSSentences(snuUnit, 15).then(sentences => {
       STATE.gmsSentences = sentences;
-      console.log(`GMS: ${sentences.length} phrases chargées pour ${initUnit.snu_level}`);
+      console.log(`GMS: ${sentences.length} phrases chargées pour ${snuUnit}`);
     });
   }
 
