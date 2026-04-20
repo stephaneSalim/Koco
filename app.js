@@ -39,9 +39,11 @@ let conversationManager;
 let recognition;
 
 const elements = {
-  headerTitle: document.querySelector('.header__title'),
-  headerUnit: document.querySelector('.header__unit'),
-  headerMode: document.querySelector('.header__mode'),
+  headerUnitTitle: document.getElementById('headerUnitTitle'),
+  headerUnitSub: document.getElementById('headerUnitSub'),
+  unitSelectorBtn: document.getElementById('unitSelectorBtn'),
+  unitSelectorModal: document.getElementById('unitSelectorModal'),
+  unitSelectorList: document.getElementById('unitSelectorList'),
   conversation: document.querySelector('.conversation'),
   transcription: document.querySelector('.transcription'),
   transcriptionIndicator: document.querySelector('.transcription__indicator'),
@@ -198,9 +200,14 @@ function showAlert(type, text) {
 
 function updateHeader() {
   const unit = getUnit(STATE.unitId);
-  elements.headerTitle.textContent = unit ? unit.title : 'KoCo';
-  elements.headerUnit.textContent = unit ? unit.subtitle : '';
-  elements.headerMode.textContent = `${MODE_INFO[STATE.mode].label} · ${unit?.snu_level ?? ''}`;
+  if (elements.headerUnitTitle) {
+    elements.headerUnitTitle.textContent = unit ? unit.title : '단원 선택';
+  }
+  if (elements.headerUnitSub) {
+    elements.headerUnitSub.textContent = unit
+      ? `${unit.subtitle} · ${MODE_INFO[STATE.mode].label}`
+      : '';
+  }
 }
 
 function addMessage(role, text) {
@@ -493,6 +500,86 @@ function applyApiKey() {
 
 //#endregion
 
+//#region Unit selector
+function buildUnitSelectorList() {
+  const list = elements.unitSelectorList;
+  if (!list) return;
+  list.innerHTML = '';
+
+  // Group units by theme number (unit_1_x → group 1, etc.)
+  const groups = {};
+  Object.values(UNITS).forEach(unit => {
+    const match = unit.id.match(/unit_(\d+)_/);
+    const groupKey = match ? match[1] : '?';
+    if (!groups[groupKey]) groups[groupKey] = [];
+    groups[groupKey].push(unit);
+  });
+
+  Object.keys(groups).sort().forEach(key => {
+    const groupEl = document.createElement('div');
+    groupEl.className = 'unit-selector-group';
+
+    const groupTitle = document.createElement('div');
+    groupTitle.className = 'unit-selector-group-title';
+    groupTitle.textContent = `단원 ${key}`;
+    groupEl.appendChild(groupTitle);
+
+    groups[key].forEach(unit => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'unit-selector-item' + (unit.id === STATE.unitId ? ' active' : '');
+
+      const titleEl = document.createElement('span');
+      titleEl.className = 'unit-selector-item__title';
+      titleEl.textContent = unit.title;
+
+      const subEl = document.createElement('span');
+      subEl.className = 'unit-selector-item__sub';
+      subEl.textContent = `${unit.subtitle} · ${unit.snu_level}`;
+
+      btn.appendChild(titleEl);
+      btn.appendChild(subEl);
+      btn.addEventListener('click', () => selectUnit(unit.id));
+      groupEl.appendChild(btn);
+    });
+
+    list.appendChild(groupEl);
+  });
+}
+
+function openUnitSelector() {
+  buildUnitSelectorList();
+  elements.unitSelectorModal.classList.remove('hidden');
+}
+
+function closeUnitSelector() {
+  elements.unitSelectorModal.classList.add('hidden');
+}
+
+function selectUnit(unitId) {
+  if (!UNITS[unitId]) return;
+  STATE.unitId = unitId;
+  closeUnitSelector();
+
+  conversationManager.clear();
+  elements.conversation.innerHTML = '';
+
+  // Reload GMS for new unit
+  const unit = getUnit(STATE.unitId);
+  if (unit?.snu_level && window.getGMSSentences) {
+    const snuUnit = unit.snu_level.replace(/-\d+$/, '');
+    window.getGMSSentences(snuUnit, 15).then(sentences => {
+      STATE.gmsSentences = sentences;
+      console.log(`GMS: ${sentences.length} phrases chargées pour ${snuUnit}`);
+    });
+  }
+
+  updateHeader();
+  nextQuestion();
+}
+
+//#endregion
+
 //#region Initialization
 function initApp() {
   conversationManager = new ConversationManager();
@@ -501,6 +588,9 @@ function initApp() {
   // Register DOM events
   elements.micButton.addEventListener('click', toggleListening);
   elements.nextQuestionButton.addEventListener('click', () => nextQuestion());
+
+  elements.unitSelectorBtn.addEventListener('click', openUnitSelector);
+  elements.unitSelectorModal.querySelector('.unit-selector-overlay').addEventListener('click', closeUnitSelector);
 
   elements.navTabs.forEach(tab => {
     tab.addEventListener('click', () => updateMode(tab.dataset.mode));

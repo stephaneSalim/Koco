@@ -9,10 +9,22 @@
 <body>
   <div id="app">
     <header class="header">
-      <div class="header__title">KoCo</div>
-      <div class="header__unit"></div>
-      <div class="header__mode"></div>
+      <div class="header__branding">KoCo</div>
+      <button id="unitSelectorBtn" class="header__unit-selector" type="button">
+        <span id="headerUnitTitle" class="header__unit-title">음식과 영양</span>
+        <span id="headerUnitSub" class="header__unit-sub">Food & Nutrition · 자유 대화</span>
+        <span class="header__unit-chevron">▾</span>
+      </button>
     </header>
+
+    <div id="unitSelectorModal" class="unit-selector-modal hidden">
+      <div class="unit-selector-overlay"></div>
+      <div class="unit-selector-sheet">
+        <div class="unit-selector-handle"></div>
+        <h3 class="unit-selector-title">단원 선택</h3>
+        <div class="unit-selector-list" id="unitSelectorList"></div>
+      </div>
+    </div>
 
     <main class="main main--with-tabs">
       <div class="conversation"></div>
