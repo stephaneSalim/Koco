@@ -11,9 +11,7 @@ const STATE = {
   isProcessing: false,
   usedQuestions: {
     freeChat: new Set(),
-    debate: new Set(),
-    speaking: new Set(),
-    speedDrill: new Set()
+    debate: new Set()
   },
   session: {
     sessionStart: null,
@@ -32,9 +30,7 @@ const STORAGE_KEYS = {
 
 const MODE_INFO = {
   freeChat: { icon: '💬', label: '자유 대화' },
-  debate: { icon: '⚖️', label: '토론' },
-  speaking: { icon: '🗣️', label: '말하기 시험' },
-  speedDrill: { icon: '⚡', label: '속도 드릴' }
+  debate: { icon: '⚖️', label: '토론' }
 };
 
 let conversationManager;
@@ -125,7 +121,7 @@ function stopTts() {
 
 async function speakWithElevenLabs(text) {
   try {
-    const response = await fetch('/api/tts', {
+    const response = await fetch(API_CONFIG.TTS_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text })
