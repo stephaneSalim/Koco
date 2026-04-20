@@ -4,7 +4,7 @@ export default async function handler(req, res) {
   }
   const { text } = req.body;
   const response = await fetch(
-    'https://api.elevenlabs.io/v1/text-to-speech/8jHHF8rMqMlg8if2mOUe',
+    'https://api.elevenlabs.io/v1/text-to-speech/sf8Bpb1IU97NI9BHSMRf',
     {
       method: 'POST',
       headers: {
@@ -18,6 +18,7 @@ export default async function handler(req, res) {
       })
     }
   );
+  console.log('TTS status:', response.status);
   const audioBuffer = await response.arrayBuffer();
   res.setHeader('Content-Type', 'audio/mpeg');
   res.send(Buffer.from(audioBuffer));
