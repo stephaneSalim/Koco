@@ -1,6 +1,6 @@
 // KoCo — Supabase DB (sans auth)
 const SUPABASE_URL = 'https://jxbqlphxsgglrlznpall.supabase.co';
-const SUPABASE_ANON_KEY = 'REMPLACE_PAR_TA_CLE_ANON';
+const SUPABASE_ANON_KEY = 'sb_publishable_ZrgImoU54nnrdQnxKboadg_0AFHj1cN';
 
 window.supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -14,6 +14,19 @@ function getOrCreateUserId() {
   return userId;
 }
 window.kocoUserId = getOrCreateUserId();
+
+async function saveCorrection(originalText, correctedText, explanation) {
+  try {
+    await window.supabaseClient.from('corrections').insert({
+      user_id: window.kocoUserId,
+      original_text: originalText,
+      corrected_text: correctedText,
+      error_type: explanation,
+      created_at: new Date().toISOString()
+    });
+  } catch(e) { console.log('Correction save error:', e); }
+}
+window.saveCorrection = saveCorrection;
 
 // Sauvegarder une session dans Supabase
 async function saveSession(lessonId, mode, durationSeconds) {
