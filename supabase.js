@@ -79,3 +79,61 @@ async function saveSession(unitId, mode, durationMinutes, corrections) {
   }
 }
 window.saveSession = saveSession;
+
+async function loadUserStats() {
+  try {
+    const userId = window.kocoUserId;
+
+    const { data: sessions } = await window.supabaseClient
+      .from('sessions')
+      .select('duration_seconds, created_at, lesson_id')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    const { data: corrections } = await window.supabaseClient
+      .from('corrections')
+      .select('original_text, corrected_text, error_type, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    const sessionDates = [...new Set(
+      (sessions || []).map(s => new Date(s.created_at).toDateString())
+    )];
+
+    let streak = 0;
+    const checkDate = new Date();
+    for (let i = 0; i < 30; i++) {
+      const dateStr = checkDate.toDateString();
+      if (sessionDates.includes(dateStr)) {
+        streak++;
+        checkDate.setDate(checkDate.getDate() - 1);
+      } else if (i === 0) {
+        checkDate.setDate(checkDate.getDate() - 1);
+      } else {
+        break;
+      }
+    }
+
+    const totalMinutes = Math.round(
+      (sessions || []).reduce((sum, s) => sum + (s.duration_seconds || 0), 0) / 60
+    );
+
+    const studiedUnits = [...new Set(
+      (sessions || []).map(s => s.lesson_id).filter(Boolean)
+    )];
+
+    return {
+      streak,
+      totalMinutes,
+      totalSessions: (sessions || []).length,
+      totalCorrections: (corrections || []).length,
+      recentCorrections: (corrections || []).slice(0, 5),
+      studiedUnits
+    };
+  } catch(e) {
+    console.log('Stats load error:', e);
+    return null;
+  }
+}
+window.loadUserStats = loadUserStats;

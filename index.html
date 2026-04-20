@@ -59,6 +59,47 @@
     </div>
 
     <main class="main main--with-tabs">
+      <div id="statsScreen" class="stats-screen hidden">
+        <div class="stats-header">
+          <h2>나의 학습 현황</h2>
+          <p id="statsUserId" class="stats-user-id"></p>
+        </div>
+        <div class="stats-grid">
+          <div class="stats-card">
+            <div class="stats-card__icon">🔥</div>
+            <div class="stats-card__value" id="statStreak">0</div>
+            <div class="stats-card__label">연속 학습일</div>
+          </div>
+          <div class="stats-card">
+            <div class="stats-card__icon">⏱</div>
+            <div class="stats-card__value" id="statTotalTime">0</div>
+            <div class="stats-card__label">총 학습 시간 (분)</div>
+          </div>
+          <div class="stats-card">
+            <div class="stats-card__icon">💬</div>
+            <div class="stats-card__value" id="statSessions">0</div>
+            <div class="stats-card__label">총 세션 수</div>
+          </div>
+          <div class="stats-card">
+            <div class="stats-card__icon">🔧</div>
+            <div class="stats-card__value" id="statCorrections">0</div>
+            <div class="stats-card__label">받은 교정 수</div>
+          </div>
+        </div>
+        <div class="stats-section">
+          <h3>최근 교정 내역</h3>
+          <div id="recentCorrections" class="recent-corrections">
+            <p class="stats-empty">아직 교정 내역이 없어요.</p>
+          </div>
+        </div>
+        <div class="stats-section">
+          <h3>학습한 단원</h3>
+          <div id="studiedUnits" class="studied-units">
+            <p class="stats-empty">아직 학습한 단원이 없어요.</p>
+          </div>
+        </div>
+      </div>
+
       <div class="conversation"></div>
 
       <div class="transcription-panel">
@@ -97,6 +138,10 @@
       <button class="nav-tab" data-mode="debate" type="button">
         <span class="nav-tab__icon">⚖️</span>
         <span class="nav-tab__label">토론</span>
+      </button>
+      <button class="nav-tab" data-mode="stats" type="button">
+        <span class="nav-tab__icon">📈</span>
+        <span class="nav-tab__label">통계</span>
       </button>
     </nav>
 

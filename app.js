@@ -63,7 +63,8 @@ const elements = {
   nextQuestionButton: document.querySelector('.next-question-btn'),
   ttsToggleButton: document.querySelector('.tts-toggle'),
   endSessionBtn: document.getElementById('endSessionBtn'),
-  sessionSummaryModal: document.getElementById('sessionSummaryModal')
+  sessionSummaryModal: document.getElementById('sessionSummaryModal'),
+  statsScreen: document.getElementById('statsScreen')
 };
 
 let ttsPulseInterval = null;
@@ -292,13 +293,10 @@ function setMicState(state) {
   }
 }
 
-function updateNav() {
+function updateNav(activeMode) {
+  const current = activeMode || STATE.mode;
   elements.navTabs.forEach(tab => {
-    if (tab.dataset.mode === STATE.mode) {
-      tab.classList.add('active');
-    } else {
-      tab.classList.remove('active');
-    }
+    tab.classList.toggle('active', tab.dataset.mode === current);
   });
 }
 
@@ -351,9 +349,57 @@ function nextQuestion() {
   setQuestion(candidate);
 }
 
-function updateMode(newMode) {
-  if (!MODE_INFO[newMode]) return;
+function showStatsScreen() {
+  elements.statsScreen.classList.remove('hidden');
+  elements.conversation.style.display = 'none';
 
+  const userIdEl = document.getElementById('statsUserId');
+  if (userIdEl) userIdEl.textContent = `ID: ${window.kocoUserId}`;
+
+  if (!window.loadUserStats) return;
+  window.loadUserStats().then(stats => {
+    if (!stats) return;
+
+    document.getElementById('statStreak').textContent = stats.streak;
+    document.getElementById('statTotalTime').textContent = stats.totalMinutes;
+    document.getElementById('statSessions').textContent = stats.totalSessions;
+    document.getElementById('statCorrections').textContent = stats.totalCorrections;
+
+    const corrEl = document.getElementById('recentCorrections');
+    if (stats.recentCorrections.length === 0) {
+      corrEl.innerHTML = '<p class="stats-empty">아직 교정 내역이 없어요.</p>';
+    } else {
+      corrEl.innerHTML = stats.recentCorrections.map(c =>
+        `<div class="correction-item">🔧 <strong>${c.original_text}</strong> → ${c.corrected_text}<br><span style="color:#888;font-size:0.78em">💡 ${c.error_type || ''}</span></div>`
+      ).join('');
+    }
+
+    const unitsEl = document.getElementById('studiedUnits');
+    if (stats.studiedUnits.length === 0) {
+      unitsEl.innerHTML = '<p class="stats-empty">아직 학습한 단원이 없어요.</p>';
+    } else {
+      unitsEl.innerHTML = stats.studiedUnits.map(u =>
+        `<span class="unit-tag">${u}</span>`
+      ).join('');
+    }
+  });
+}
+
+function hideStatsScreen() {
+  elements.statsScreen.classList.add('hidden');
+  elements.conversation.style.display = '';
+}
+
+function updateMode(newMode) {
+  if (newMode === 'stats') {
+    updateNav('stats');
+    showStatsScreen();
+    return;
+  }
+
+  hideStatsScreen();
+
+  if (!MODE_INFO[newMode]) return;
   STATE.mode = newMode;
   STATE.usedQuestions[newMode] = STATE.usedQuestions[newMode] || new Set();
   updateHeader();
