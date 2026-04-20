@@ -31,12 +31,19 @@ window.saveCorrection = saveCorrection;
 // Sauvegarder une session dans Supabase
 async function getGMSSentences(snuUnit, limit = 20) {
   try {
-    const { data, error } = await window.supabaseClient
+    console.log('Fetching GMS for unit:', snuUnit);
+    console.log('Supabase client:', !!window.supabaseClient);
+
+    const { data, error, status, statusText } = await window.supabaseClient
       .from('gms_sentences')
       .select('gms_id, text_kr, text_en')
       .eq('snu_unit', snuUnit)
       .order('gms_id')
       .limit(limit);
+
+    console.log('GMS response status:', status, statusText);
+    console.log('GMS error:', error);
+    console.log('GMS data count:', data?.length);
 
     if (error) throw error;
     return data || [];
