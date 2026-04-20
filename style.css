@@ -371,6 +371,29 @@ input, button, textarea, select {
   white-space: nowrap;
 }
 
+.correction-block {
+  margin: 4px 16px 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.82em;
+  line-height: 1.5;
+}
+.correction-block--correct {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border-left: 3px solid #4caf50;
+}
+.correction-block--minor {
+  background: #fff8e1;
+  color: #f57f17;
+  border-left: 3px solid #ffc107;
+}
+.correction-block--major {
+  background: #fce4ec;
+  color: #c62828;
+  border-left: 3px solid #ef5350;
+}
+
 .tts-toggle {
   width: 36px;
   height: 36px;

@@ -228,6 +228,47 @@ function addMessage(role, text) {
   elements.conversation.scrollTop = elements.conversation.scrollHeight;
 }
 
+function parseCorrection(fullText) {
+  const match = fullText.match(/\[CORRECTION\]([\s\S]*?)\[\/CORRECTION\]/);
+  if (!match) return { text: fullText, correction: null };
+
+  const text = fullText.replace(/\[CORRECTION\][\s\S]*?\[\/CORRECTION\]/, '').trim();
+  const block = match[1];
+
+  const get = (key) => {
+    const m = block.match(new RegExp(`${key}:\\s*(.+)`));
+    return m ? m[1].trim() : '';
+  };
+
+  return {
+    text,
+    correction: {
+      status: get('STATUS').toLowerCase(),
+      original: get('ORIGINAL'),
+      fixed: get('FIXED'),
+      note: get('NOTE')
+    }
+  };
+}
+
+function addCorrectionBlock(correction) {
+  if (!correction) return;
+
+  const el = document.createElement('div');
+  el.className = `correction-block correction-block--${correction.status}`;
+
+  if (correction.status === 'correct') {
+    el.textContent = '✅ 자연스러워요!';
+  } else {
+    el.innerHTML =
+      `🔧 <strong>${correction.original}</strong> → <strong>${correction.fixed}</strong><br>` +
+      `💡 ${correction.note}`;
+  }
+
+  elements.conversation.appendChild(el);
+  elements.conversation.scrollTop = elements.conversation.scrollHeight;
+}
+
 function showTypingIndicator(show) {
   elements.typingIndicator.style.display = show ? 'flex' : 'none';
   if (show) elements.conversation.scrollTop = elements.conversation.scrollHeight;
@@ -445,9 +486,11 @@ async function processUserInput(text) {
       return;
     }
 
-    addMessage('assistant', result.response);
+    const { text: conversationText, correction } = parseCorrection(result.response);
+    addMessage('assistant', conversationText);
+    addCorrectionBlock(correction);
     if (ttsEnabled) {
-      await speakKorean(result.response);
+      await speakKorean(conversationText);
     }
 
     // Track detected structures, if any

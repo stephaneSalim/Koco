@@ -236,6 +236,27 @@ NEVER use grammatical metalanguage in conversation ("이건 5A 문법이에요" 
 ${modeInstructions[mode] || modeInstructions.freeChat}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CORRECTION BLOCK (REQUIRED — every response)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+After every conversational response, append a correction block using this exact format:
+
+[CORRECTION]
+STATUS: correct|minor|major
+ORIGINAL: (exact phrase from user)
+FIXED: (corrected natural version)
+NOTE: (one short explanation in French)
+[/CORRECTION]
+
+Rules:
+- STATUS: correct → phrase is perfectly natural (FIXED = same as ORIGINAL)
+- STATUS: minor → small error (wrong particle, minor form)
+- STATUS: major → error blocks comprehension or is unnatural
+- ORIGINAL must quote the user's actual words
+- NOTE must be in French, max 1 sentence
+- This block must ALWAYS be present, even if correct
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 SESSION CONTEXT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ${unitContext}${structureContext}${vocabularyContext}
