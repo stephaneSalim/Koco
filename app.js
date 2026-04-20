@@ -21,7 +21,9 @@ const STATE = {
     structureHits: new Set()
   },
   gmsSentences: [],
-  isSpeaking: false
+  isSpeaking: false,
+  messageCount: 0,
+  sessionCorrections: []
 };
 
 const STORAGE_KEYS = {
@@ -59,7 +61,9 @@ const elements = {
   alertArea: document.querySelector('.alert-area'),
   typingIndicator: document.querySelector('.typing-indicator'),
   nextQuestionButton: document.querySelector('.next-question-btn'),
-  ttsToggleButton: document.querySelector('.tts-toggle')
+  ttsToggleButton: document.querySelector('.tts-toggle'),
+  endSessionBtn: document.getElementById('endSessionBtn'),
+  sessionSummaryModal: document.getElementById('sessionSummaryModal')
 };
 
 let ttsPulseInterval = null;
@@ -486,9 +490,13 @@ async function processUserInput(text) {
       return;
     }
 
+    STATE.messageCount += 1;
     const { text: conversationText, correction } = parseCorrection(result.response);
     addMessage('assistant', conversationText);
     addCorrectionBlock(correction);
+    if (correction && correction.status !== 'correct') {
+      STATE.sessionCorrections.push(correction);
+    }
     if (ttsEnabled) {
       await speakKorean(conversationText);
     }
@@ -623,6 +631,77 @@ function selectUnit(unitId) {
 
 //#endregion
 
+//#region Session summary
+function openSessionSummary() {
+  const durationMin = Math.round((Date.now() - STATE.session.sessionStart) / 60000);
+  const corrections = STATE.sessionCorrections;
+
+  document.getElementById('summaryDuration').textContent = `${durationMin} min`;
+  document.getElementById('summaryMessages').textContent = STATE.messageCount;
+  document.getElementById('summaryCorrections').textContent = corrections.length;
+
+  const detailEl = document.getElementById('summaryCorrectionsDetail');
+  if (corrections.length === 0) {
+    detailEl.innerHTML = '<p style="color:#999;font-size:0.85em;text-align:center;margin:8px 0">Aucune correction cette séance 🎉</p>';
+  } else {
+    const last5 = corrections.slice(-5);
+    detailEl.innerHTML = '<div style="margin-top:12px">' +
+      last5.map(c =>
+        `<div class="correction-block correction-block--${c.status}" style="margin:4px 0">` +
+        `🔧 <strong>${c.original}</strong> → <strong>${c.fixed}</strong><br>` +
+        `💡 ${c.note}</div>`
+      ).join('') +
+      '</div>';
+  }
+
+  const gmsEl = document.getElementById('summaryGMS');
+  if (STATE.gmsSentences.length > 0) {
+    gmsEl.innerHTML =
+      '<p style="font-size:0.8em;color:#666;font-weight:700;margin:12px 0 6px">Phrases GMS de l\'unité</p>' +
+      STATE.gmsSentences.slice(0, 3).map(s =>
+        `<div style="font-size:0.82em;padding:6px 8px;background:#f8f9fa;border-radius:6px;margin:4px 0">` +
+        `${s.text_kr} <span style="color:#999">— ${s.text_en}</span></div>`
+      ).join('');
+  } else {
+    gmsEl.innerHTML = '';
+  }
+
+  if (window.saveSession) {
+    saveSession(STATE.unitId, STATE.mode, durationMin, corrections);
+  }
+
+  elements.sessionSummaryModal.classList.remove('hidden');
+}
+
+function closeSessionSummary() {
+  elements.sessionSummaryModal.classList.add('hidden');
+}
+
+function resetSession() {
+  conversationManager.clear();
+  elements.conversation.innerHTML = '';
+  STATE.messageCount = 0;
+  STATE.sessionCorrections = [];
+  STATE.session.sessionStart = Date.now();
+  STATE.session.exchangeCount = 0;
+  STATE.session.totalUserWords = 0;
+  STATE.session.totalUserResponses = 0;
+  STATE.session.structureHits = new Set();
+  updateFluencyIndicator();
+
+  const unit = getUnit(STATE.unitId);
+  if (unit?.snu_level && window.getGMSSentences) {
+    const snuUnit = unit.snu_level.replace(/-\d+$/, '');
+    window.getGMSSentences(snuUnit, 15).then(sentences => {
+      STATE.gmsSentences = sentences;
+    });
+  }
+
+  nextQuestion();
+}
+
+//#endregion
+
 //#region Initialization
 function initApp() {
   conversationManager = new ConversationManager();
@@ -634,6 +713,14 @@ function initApp() {
 
   elements.unitSelectorBtn.addEventListener('click', openUnitSelector);
   elements.unitSelectorModal.querySelector('.unit-selector-overlay').addEventListener('click', closeUnitSelector);
+
+  elements.endSessionBtn.addEventListener('click', openSessionSummary);
+  elements.sessionSummaryModal.querySelector('.summary-overlay').addEventListener('click', closeSessionSummary);
+  document.getElementById('summaryContinue').addEventListener('click', closeSessionSummary);
+  document.getElementById('summaryNewSession').addEventListener('click', () => {
+    closeSessionSummary();
+    resetSession();
+  });
 
   elements.navTabs.forEach(tab => {
     tab.addEventListener('click', () => updateMode(tab.dataset.mode));

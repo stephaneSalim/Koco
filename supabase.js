@@ -54,16 +54,28 @@ async function getGMSSentences(snuUnit, limit = 20) {
 }
 window.getGMSSentences = getGMSSentences;
 
-async function saveSession(lessonId, mode, durationSeconds) {
+async function saveSession(unitId, mode, durationMinutes, corrections) {
   try {
     await window.supabaseClient.from('sessions').insert({
       user_id: window.kocoUserId,
-      lesson_id: lessonId,
+      lesson_id: unitId,
       mode: mode,
-      duration_seconds: durationSeconds,
+      duration_seconds: durationMinutes * 60,
       created_at: new Date().toISOString()
     });
-  } catch (error) {
-    console.error('Failed to save session', error);
+
+    if (corrections && corrections.length > 0) {
+      const correctionRows = corrections.map(c => ({
+        user_id: window.kocoUserId,
+        original_text: c.original,
+        corrected_text: c.fixed,
+        error_type: c.note,
+        created_at: new Date().toISOString()
+      }));
+      await window.supabaseClient.from('corrections').insert(correctionRows);
+    }
+  } catch(e) {
+    console.log('Session save error:', e);
   }
 }
+window.saveSession = saveSession;

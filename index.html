@@ -15,7 +15,39 @@
         <span id="headerUnitSub" class="header__unit-sub">Food & Nutrition · 자유 대화</span>
         <span class="header__unit-chevron">▾</span>
       </button>
+      <button id="endSessionBtn" class="header__end-session" title="Terminer la séance" type="button">⏹</button>
     </header>
+
+    <div id="sessionSummaryModal" class="summary-modal hidden">
+      <div class="summary-overlay"></div>
+      <div class="summary-sheet">
+        <div class="summary-handle"></div>
+        <h2 class="summary-title">📊 Bilan de séance</h2>
+        <div class="summary-stats">
+          <div class="summary-stat">
+            <span class="summary-stat__icon">⏱</span>
+            <span class="summary-stat__value" id="summaryDuration">0 min</span>
+            <span class="summary-stat__label">Temps de séance</span>
+          </div>
+          <div class="summary-stat">
+            <span class="summary-stat__icon">💬</span>
+            <span class="summary-stat__value" id="summaryMessages">0</span>
+            <span class="summary-stat__label">Messages envoyés</span>
+          </div>
+          <div class="summary-stat">
+            <span class="summary-stat__icon">🔧</span>
+            <span class="summary-stat__value" id="summaryCorrections">0</span>
+            <span class="summary-stat__label">Corrections reçues</span>
+          </div>
+        </div>
+        <div class="summary-corrections" id="summaryCorrectionsDetail"></div>
+        <div class="summary-gms" id="summaryGMS"></div>
+        <div class="summary-actions">
+          <button id="summaryNewSession" class="summary-btn summary-btn--primary" type="button">🔄 Nouvelle séance</button>
+          <button id="summaryContinue" class="summary-btn summary-btn--secondary" type="button">✖ Fermer</button>
+        </div>
+      </div>
+    </div>
 
     <div id="unitSelectorModal" class="unit-selector-modal hidden">
       <div class="unit-selector-overlay"></div>
