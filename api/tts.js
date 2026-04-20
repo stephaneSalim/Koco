@@ -19,6 +19,11 @@ export default async function handler(req, res) {
     }
   );
   console.log('TTS status:', response.status);
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('ElevenLabs error:', errorText);
+    return res.status(response.status).json({ error: errorText });
+  }
   const audioBuffer = await response.arrayBuffer();
   res.setHeader('Content-Type', 'audio/mpeg');
   res.send(Buffer.from(audioBuffer));
