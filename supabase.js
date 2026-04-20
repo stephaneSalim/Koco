@@ -84,18 +84,22 @@ async function loadUserStats() {
   try {
     const userId = window.kocoUserId;
 
-    const { data: sessions } = await window.supabaseClient
+    const { data: sessions, error: sessErr } = await window.supabaseClient
       .from('sessions')
       .select('duration_seconds, created_at, lesson_id')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
-    const { data: corrections } = await window.supabaseClient
+    console.log('Sessions found:', sessions?.length, sessErr || '');
+
+    const { data: corrections, error: corrErr } = await window.supabaseClient
       .from('corrections')
       .select('original_text, corrected_text, error_type, created_at')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(10);
+
+    console.log('Corrections found:', corrections?.length, corrErr || '');
 
     const sessionDates = [...new Set(
       (sessions || []).map(s => new Date(s.created_at).toDateString())

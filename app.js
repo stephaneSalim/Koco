@@ -64,7 +64,11 @@ const elements = {
   ttsToggleButton: document.querySelector('.tts-toggle'),
   endSessionBtn: document.getElementById('endSessionBtn'),
   sessionSummaryModal: document.getElementById('sessionSummaryModal'),
-  statsScreen: document.getElementById('statsScreen')
+  statsScreen: document.getElementById('statsScreen'),
+  transcriptionPanel: document.querySelector('.transcription-panel'),
+  fluencyBar: document.querySelector('.fluency-bar'),
+  fluencyBadge: document.querySelector('.fluency-badge'),
+  micContainer: document.querySelector('.mic-container')
 };
 
 let ttsPulseInterval = null;
@@ -349,12 +353,23 @@ function nextQuestion() {
   setQuestion(candidate);
 }
 
+function setConversationUiVisible(visible) {
+  const display = visible ? '' : 'none';
+  elements.conversation.style.display = display;
+  elements.transcriptionPanel.style.display = display;
+  elements.fluencyBar.style.display = display;
+  elements.fluencyBadge.style.display = display;
+  elements.micContainer.style.display = display;
+  if (elements.unitSelectorBtn) elements.unitSelectorBtn.style.visibility = visible ? '' : 'hidden';
+}
+
 function showStatsScreen() {
   elements.statsScreen.classList.remove('hidden');
-  elements.conversation.style.display = 'none';
+  setConversationUiVisible(false);
 
+  const userId = window.kocoUserId || '';
   const userIdEl = document.getElementById('statsUserId');
-  if (userIdEl) userIdEl.textContent = `ID: ${window.kocoUserId}`;
+  if (userIdEl) userIdEl.textContent = `ID: ...${userId.slice(-8)}`;
 
   if (!window.loadUserStats) return;
   window.loadUserStats().then(stats => {
@@ -387,7 +402,7 @@ function showStatsScreen() {
 
 function hideStatsScreen() {
   elements.statsScreen.classList.add('hidden');
-  elements.conversation.style.display = '';
+  setConversationUiVisible(true);
 }
 
 function updateMode(newMode) {
