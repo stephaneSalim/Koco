@@ -58,8 +58,110 @@ const elements = {
   apiCancelButton: document.querySelector('.modal__button--secondary'),
   alertArea: document.querySelector('.alert-area'),
   typingIndicator: document.querySelector('.typing-indicator'),
-  nextQuestionButton: document.querySelector('.next-question-btn')
+  nextQuestionButton: document.querySelector('.next-question-btn'),
+  ttsToggleButton: document.querySelector('.tts-toggle')
 };
+
+let currentAudio = null;
+let ttsPulseInterval = null;
+let ttsEnabled = localStorage.getItem('koco_tts_enabled') !== 'false';
+
+function createTtsToggleButton() {
+  const header = document.querySelector('header.header');
+  if (!header) return null;
+
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'tts-toggle';
+  button.title = 'Immersive TTS';
+  button.style.cssText = 'margin-left:auto; padding:0.7rem 1rem; border:none; background:rgba(255,255,255,0.85); border-radius:999px; cursor:pointer; font-size:1rem;';
+  button.textContent = ttsEnabled ? '🔊' : '🔇';
+  button.addEventListener('click', toggleTts);
+  header.appendChild(button);
+  return button;
+}
+
+function updateTtsButton() {
+  if (!elements.ttsToggleButton) return;
+  elements.ttsToggleButton.textContent = ttsEnabled ? '🔊' : '🔇';
+  elements.ttsToggleButton.style.opacity = ttsEnabled ? '1' : '0.65';
+}
+
+function toggleTts() {
+  ttsEnabled = !ttsEnabled;
+  localStorage.setItem('koco_tts_enabled', ttsEnabled);
+  if (!ttsEnabled) stopTts();
+  updateTtsButton();
+}
+
+function startTtsPulse() {
+  if (!elements.ttsToggleButton) return;
+  stopTtsPulse();
+  elements.ttsToggleButton.style.transform = 'scale(1.05)';
+  ttsPulseInterval = setInterval(() => {
+    elements.ttsToggleButton.style.transform = elements.ttsToggleButton.style.transform === 'scale(1.05)' ? 'scale(1)' : 'scale(1.05)';
+  }, 600);
+}
+
+function stopTtsPulse() {
+  if (!elements.ttsToggleButton) return;
+  if (ttsPulseInterval) {
+    clearInterval(ttsPulseInterval);
+    ttsPulseInterval = null;
+  }
+  elements.ttsToggleButton.style.transform = '';
+}
+
+function stopTts() {
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio = null;
+  }
+  stopTtsPulse();
+  if (window.speechSynthesis) {
+    window.speechSynthesis.cancel();
+  }
+}
+
+async function speakWithElevenLabs(text) {
+  try {
+    const response = await fetch('/api/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text })
+    });
+
+    if (!response.ok) {
+      throw new Error('ElevenLabs TTS failed');
+    }
+
+    const audioBlob = await response.blob();
+    const audioUrl = URL.createObjectURL(audioBlob);
+    const audio = new Audio(audioUrl);
+    currentAudio = audio;
+
+    audio.addEventListener('ended', () => {
+      currentAudio = null;
+      stopTtsPulse();
+      URL.revokeObjectURL(audioUrl);
+    });
+    audio.addEventListener('pause', () => {
+      stopTtsPulse();
+    });
+    audio.addEventListener('play', () => {
+      startTtsPulse();
+    });
+
+    await audio.play();
+  } catch (e) {
+    console.warn('ElevenLabs TTS failed, fallback to Web Speech API', e);
+    stopTtsPulse();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'ko-KR';
+    window.speechSynthesis.speak(utterance);
+  }
+}
+
 
 //#endregion
 
@@ -351,6 +453,9 @@ async function processUserInput(text) {
     }
 
     addMessage('assistant', result.response);
+    if (ttsEnabled) {
+      await speakWithElevenLabs(result.response);
+    }
 
     // Track detected structures, if any
     const detected = detectTargetStructures(text, unitContext.targetGrammar || []);
@@ -422,6 +527,9 @@ function initApp() {
     }
     hideApiModal();
   });
+
+  elements.ttsToggleButton = elements.ttsToggleButton || document.querySelector('.tts-toggle') || createTtsToggleButton();
+  updateTtsButton();
 
   initSpeechRecognition();
 

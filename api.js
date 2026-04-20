@@ -13,9 +13,14 @@
 // API KEY MANAGEMENT
 // ═══════════════════════════════════════════════════════════════════════════
 
+const isLocal = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost';
+const API_ENDPOINT = isLocal ? 'http://localhost:3000/api/chat' : '/api/chat';
+const TTS_ENDPOINT = isLocal ? 'http://localhost:3000/api/tts' : '/api/tts';
+
 const API_CONFIG = {
   STORAGE_KEY: 'koco_anthropic_api_key',
-  API_ENDPOINT: 'https://api.anthropic.com/v1/messages',
+  API_ENDPOINT: API_ENDPOINT,
+  TTS_ENDPOINT: TTS_ENDPOINT,
   MODEL: 'claude-sonnet-4-20250514'
 };
 
