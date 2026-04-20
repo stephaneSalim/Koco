@@ -127,11 +127,19 @@ async function speakWithElevenLabs(text) {
       body: JSON.stringify({ text })
     });
 
+    console.log('TTS response status:', response.status);
     if (!response.ok) {
-      throw new Error('ElevenLabs TTS failed');
+      const errText = await response.text();
+      console.error('TTS error body:', errText);
+      throw new Error('ElevenLabs TTS failed: ' + errText);
     }
 
     const audioBlob = await response.blob();
+    console.log('TTS blob size:', audioBlob.size, 'type:', audioBlob.type);
+    if (audioBlob.size === 0 || !audioBlob.type.includes('audio')) {
+      console.error('TTS blob invalid — size:', audioBlob.size, 'type:', audioBlob.type);
+      throw new Error('TTS blob invalide');
+    }
     const audioUrl = URL.createObjectURL(audioBlob);
     const audio = new Audio(audioUrl);
     currentAudio = audio;
