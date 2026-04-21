@@ -62,7 +62,9 @@ const MODE_INFO = {
 };
 
 let conversationManager;
-let recognition;
+let _mediaRecorder = null;
+let _audioChunks = [];
+let _isRecording = false;
 
 const elements = {
   headerUnitTitle: document.getElementById('headerUnitTitle'),
@@ -156,9 +158,6 @@ function stopTts() {
     _currentTtsAudio.pause();
     _currentTtsAudio = null;
   }
-  if (window.speechSynthesis) {
-    window.speechSynthesis.cancel();
-  }
 }
 
 function cleanForTTS(text) {
@@ -168,30 +167,8 @@ function cleanForTTS(text) {
     .trim();
 }
 
-function speakKoreanFallback(text, resolve) {
-  window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = 'ko-KR';
-  utterance.rate = 0.9;
-  utterance.pitch = 1.0;
-  const voices = window.speechSynthesis.getVoices();
-  const koreanVoice = voices.find(v => v.lang.startsWith('ko'));
-  if (koreanVoice) utterance.voice = koreanVoice;
-  const done = () => {
-    STATE.isSpeaking = false;
-    elements.micButton.disabled = false;
-    stopTtsPulse();
-    setMicState('idle');
-    resolve();
-  };
-  utterance.onend = done;
-  utterance.onerror = done;
-  window.speechSynthesis.speak(utterance);
-}
-
 function speakKorean(text) {
   return new Promise(async (resolve) => {
-    if (STATE.isListening && recognition) recognition.abort();
     STATE.isSpeaking = true;
     elements.micButton.disabled = true;
     startTtsPulse();
@@ -233,12 +210,12 @@ function speakKorean(text) {
       const audioEl = new Audio(url);
       _currentTtsAudio = audioEl;
       audioEl.onended = () => { URL.revokeObjectURL(url); done(); };
-      audioEl.onerror = () => { URL.revokeObjectURL(url); speakKoreanFallback(cleaned, resolve); };
+      audioEl.onerror = () => { URL.revokeObjectURL(url); done(); };
       audioEl.play();
 
     } catch (e) {
-      console.warn('ElevenLabs TTS failed, using fallback:', e.message);
-      speakKoreanFallback(cleaned, resolve);
+      console.warn('ElevenLabs TTS failed:', e.message);
+      done();
     }
   });
 }
@@ -520,93 +497,107 @@ function updateMode(newMode) {
 
 //#endregion
 
-//#region Speech recognition setup
-function initSpeechRecognition() {
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+//#region Push-to-talk (MediaRecorder + ElevenLabs STT)
 
-  if (!SpeechRecognition) {
-    showAlert('error', '이 브라우저는 Web Speech API를 지원하지 않습니다. Chrome을 사용하세요.');
-    elements.micButton.disabled = true;
-    return;
-  }
+const STT_ENDPOINT = isLocal ? 'http://localhost:3000/api/stt' : '/api/stt';
 
-  recognition = new SpeechRecognition();
-  recognition.lang = 'ko-KR';
-  recognition.continuous = true;
-  recognition.interimResults = true;
+async function startRecording() {
+  if (_isRecording || STATE.isSpeaking) return;
 
-  recognition.onstart = () => {
-    STATE.isListening = true;
-    setMicState('listening');
-    elements.transcriptionIndicator.textContent = '음성 인식 중...';
-  };
-
-  recognition.onresult = (event) => {
-    let interim = '';
-    let final = '';
-
-    for (let i = event.resultIndex; i < event.results.length; i += 1) {
-      const result = event.results[i];
-      const transcript = result[0].transcript.trim();
-      if (result.isFinal) {
-        final += transcript + ' ';
-      } else {
-        interim += transcript + ' ';
-      }
-    }
-
-    elements.transcription.textContent = final || interim;
-    elements.transcription.classList.toggle('transcription--interim', !!interim && !final);
-
-    if (final) {
-      processUserInput(final.trim());
-      elements.transcription.textContent = '';
-    }
-  };
-
-  recognition.onerror = (event) => {
-    console.error('Speech recognition error', event.error);
-    if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-      showAlert('error', '마이크 접근이 거부되었습니다. 브라우저 설정을 확인하세요.');
-      stopListening();
-      stateResetMic();
-      return;
-    }
-
-    showAlert('warning', `음성 인식 오류: ${event.error}`);
-  };
-
-  recognition.onend = () => {
-    STATE.isListening = false;
-    if (STATE.isProcessing) {
-      // Keep in processing state until API response.
-      return;
-    }
-    setMicState('idle');
-    elements.transcriptionIndicator.textContent = '마이크 정지';
-  };
-}
-
-function startListening() {
-  if (!recognition || STATE.isListening || STATE.isSpeaking) return;
   try {
-    recognition.start();
-  } catch (error) {
-    console.warn('Unable to start recognition', error);
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: { channelCount: 1, sampleRate: 16000 }
+    });
+
+    _audioChunks = [];
+    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+      ? 'audio/webm;codecs=opus'
+      : 'audio/webm';
+
+    _mediaRecorder = new MediaRecorder(stream, { mimeType });
+    _mediaRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) _audioChunks.push(e.data);
+    };
+
+    _mediaRecorder.start(100);
+    _isRecording = true;
+    setMicState('listening');
+    if (elements.transcription) elements.transcription.textContent = '녹음 중...';
+
+  } catch (err) {
+    console.error('Mic error:', err);
+    showAlert('error', '마이크 접근이 거부되었습니다. 브라우저 설정을 확인하세요.');
   }
 }
 
-function stopListening() {
-  if (!recognition || !STATE.isListening) return;
-  recognition.stop();
+async function stopRecording() {
+  if (!_isRecording || !_mediaRecorder) return '';
+  _isRecording = false;
+  setMicState('processing');
+  if (elements.transcription) elements.transcription.textContent = '변환 중...';
+
+  return new Promise((resolve) => {
+    _mediaRecorder.onstop = async () => {
+      const mimeType = _mediaRecorder.mimeType || 'audio/webm';
+      const blob = new Blob(_audioChunks, { type: mimeType });
+      _mediaRecorder.stream.getTracks().forEach(t => t.stop());
+      _mediaRecorder = null;
+
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64 = reader.result.split(',')[1];
+        try {
+          const response = await fetch(STT_ENDPOINT, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ audioBase64: base64, mimeType: 'audio/webm' })
+          });
+          if (!response.ok) throw new Error(`STT ${response.status}`);
+          const { text } = await response.json();
+          if (elements.transcription) elements.transcription.textContent = text || '';
+          resolve(text || '');
+        } catch (e) {
+          console.error('STT error:', e);
+          showAlert('error', 'STT 오류가 발생했습니다.');
+          if (elements.transcription) elements.transcription.textContent = '';
+          resolve('');
+        } finally {
+          setMicState('idle');
+        }
+      };
+      reader.readAsDataURL(blob);
+    };
+
+    _mediaRecorder.stop();
+  });
 }
 
-function toggleListening() {
-  if (STATE.isListening) {
-    stopListening();
-  } else {
-    startListening();
-  }
+function initPushToTalk() {
+  const micBtn = elements.micButton;
+  if (!micBtn) return;
+
+  micBtn.addEventListener('pointerdown', async (e) => {
+    e.preventDefault();
+    if (STATE.isSpeaking) return;
+    await startRecording();
+  });
+
+  micBtn.addEventListener('pointerup', async (e) => {
+    e.preventDefault();
+    if (!_isRecording) return;
+    const text = await stopRecording();
+    if (text && text.trim()) {
+      if (elements.userTextInput) elements.userTextInput.value = '';
+      processUserInput(text.trim());
+    }
+  });
+
+  micBtn.addEventListener('pointerleave', async () => {
+    if (_isRecording) {
+      const text = await stopRecording();
+      if (text && text.trim()) processUserInput(text.trim());
+    }
+  });
 }
 
 //#endregion
@@ -660,7 +651,7 @@ async function processUserInput(text) {
     }
 
     // Track detected structures, if any
-    const detected = detectTargetStructures(text, unitContext.targetGrammar || []);
+    const detected = detectTargetStructures(text, context.targetStructures || []);
     detected.forEach((s) => STATE.session.structureHits.add(s));
 
     // Mark unit completed once user responds 3 times in this unit
@@ -1059,7 +1050,6 @@ function initApp() {
   STATE.session.sessionStart = Date.now();
 
   // Register DOM events
-  elements.micButton.addEventListener('click', toggleListening);
   elements.nextQuestionButton.addEventListener('click', () => nextQuestion());
 
   elements.unitSelectorBtn.addEventListener('click', openUnitSelector);
@@ -1088,7 +1078,7 @@ function initApp() {
   elements.ttsToggleButton = elements.ttsToggleButton || document.querySelector('.tts-toggle') || createTtsToggleButton();
   updateTtsButton();
 
-  initSpeechRecognition();
+  initPushToTalk();
   initInputBar();
   initPhotoInput();
 
