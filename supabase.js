@@ -56,14 +56,20 @@ window.getGMSSentences = getGMSSentences;
 
 async function saveSession(unitId, mode, durationMinutes, corrections) {
   try {
-    await window.supabaseClient.from('sessions').insert({
+    const sessionPayload = {
       user_id: window.kocoUserId,
       lesson_id: unitId,
       mode: mode,
       duration_seconds: durationMinutes * 60,
       created_at: new Date().toISOString()
-    });
+    };
+    console.log('saveSession payload:', JSON.stringify(sessionPayload));
 
+    const { error: sessionError } = await window.supabaseClient
+      .from('sessions').insert(sessionPayload);
+    console.log('saveSession error:', JSON.stringify(sessionError));
+
+    console.log('saveCorrections count:', corrections?.length);
     if (corrections && corrections.length > 0) {
       const correctionRows = corrections.map(c => ({
         user_id: window.kocoUserId,
@@ -72,7 +78,9 @@ async function saveSession(unitId, mode, durationMinutes, corrections) {
         error_type: c.note,
         created_at: new Date().toISOString()
       }));
-      await window.supabaseClient.from('corrections').insert(correctionRows);
+      const { error: corrError } = await window.supabaseClient
+        .from('corrections').insert(correctionRows);
+      console.log('saveCorrections error:', JSON.stringify(corrError));
     }
   } catch(e) {
     console.log('Session save error:', e);

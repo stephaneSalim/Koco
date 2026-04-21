@@ -902,6 +902,10 @@ function openSessionSummary() {
     gmsEl.innerHTML = '';
   }
 
+  console.log('Session ending - messages:', STATE.messageCount);
+  console.log('Session ending - corrections:', corrections?.length);
+  console.log('Session ending - duration:', durationMin, 'min');
+
   if (window.saveSession) {
     saveSession(STATE.unitId, STATE.mode, durationMin, corrections);
   }
