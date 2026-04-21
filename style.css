@@ -888,15 +888,19 @@ input, button, textarea, select {
 }
 .unit-selector-item {
   display: flex;
-  flex-direction: column;
-  padding: 10px 10px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 8px;
   border-radius: 8px;
-  cursor: pointer;
   transition: background 0.15s;
-  border: none;
-  background: none;
   width: 100%;
-  text-align: left;
+}
+.unit-selector-item:hover { background: #f5f5f5; }
+.unit-selector-item__info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  cursor: pointer;
 }
 .unit-selector-item:hover {
   background: #f5f5f5;
@@ -916,6 +920,27 @@ input, button, textarea, select {
   font-size: 0.75rem;
   color: #999;
   margin-top: 1px;
+}
+.unit-selector-item__photo {
+  background: none;
+  border: none;
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  opacity: 0.4;
+  transition: opacity 0.2s;
+  flex-shrink: 0;
+  position: relative;
+}
+.unit-selector-item__photo:hover { opacity: 1; }
+.unit-selector-item__photo.has-content { opacity: 1; }
+.unit-selector-item__photo.has-content::after {
+  content: '✅';
+  font-size: 0.55rem;
+  position: absolute;
+  top: 0;
+  right: 2px;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

@@ -630,12 +630,14 @@ function applyApiKey() {
 //#endregion
 
 //#region Unit selector
-function buildUnitSelectorList() {
+
+let _pendingPhotoUnitId = null;
+
+async function buildUnitSelectorList() {
   const list = elements.unitSelectorList;
   if (!list) return;
   list.innerHTML = '';
 
-  // Group units by theme number (unit_1_x → group 1, etc.)
   const groups = {};
   Object.values(UNITS).forEach(unit => {
     const match = unit.id.match(/unit_(\d+)_/);
@@ -654,9 +656,11 @@ function buildUnitSelectorList() {
     groupEl.appendChild(groupTitle);
 
     groups[key].forEach(unit => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'unit-selector-item' + (unit.id === STATE.unitId ? ' active' : '');
+      const row = document.createElement('div');
+      row.className = 'unit-selector-item' + (unit.id === STATE.unitId ? ' active' : '');
+
+      const infoEl = document.createElement('div');
+      infoEl.className = 'unit-selector-item__info';
 
       const titleEl = document.createElement('span');
       titleEl.className = 'unit-selector-item__title';
@@ -666,10 +670,33 @@ function buildUnitSelectorList() {
       subEl.className = 'unit-selector-item__sub';
       subEl.textContent = `${unit.subtitle} · ${unit.snu_level}`;
 
-      btn.appendChild(titleEl);
-      btn.appendChild(subEl);
-      btn.addEventListener('click', () => selectUnit(unit.id));
-      groupEl.appendChild(btn);
+      infoEl.appendChild(titleEl);
+      infoEl.appendChild(subEl);
+      infoEl.addEventListener('click', () => selectUnit(unit.id));
+
+      const photoBtn = document.createElement('button');
+      photoBtn.type = 'button';
+      photoBtn.className = 'unit-selector-item__photo';
+      photoBtn.title = '이 단원의 교재 페이지 추가';
+      photoBtn.textContent = '📸';
+      photoBtn.dataset.unitId = unit.id;
+
+      photoBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        _pendingPhotoUnitId = unit.id;
+        elements.photoFileInput.click();
+      });
+
+      // Check if content already saved
+      if (window.getLessonContent) {
+        window.getLessonContent(unit.id).then(content => {
+          if (content) photoBtn.classList.add('has-content');
+        });
+      }
+
+      row.appendChild(infoEl);
+      row.appendChild(photoBtn);
+      groupEl.appendChild(row);
     });
 
     list.appendChild(groupEl);
@@ -692,14 +719,21 @@ function selectUnit(unitId) {
 
   conversationManager.clear();
   elements.conversation.innerHTML = '';
+  STATE.pageContext = null;
 
-  // Reload GMS for new unit
   const unit = getUnit(STATE.unitId);
+
+  // Load saved lesson content if available
+  if (window.getLessonContent) {
+    window.getLessonContent(unit.id).then(content => {
+      if (content) STATE.pageContext = content;
+    });
+  }
+
   if (unit?.snu_level && window.getGMSSentences) {
     const snuUnit = unit.snu_level.replace(/-\d+$/, '');
     window.getGMSSentences(snuUnit, 15).then(sentences => {
       STATE.gmsSentences = sentences;
-      console.log(`GMS: ${sentences.length} phrases chargées pour ${snuUnit}`);
     });
   }
 
@@ -792,6 +826,7 @@ function addSystemMessage(text) {
 
 function initPhotoInput() {
   elements.photoInputBtn.addEventListener('click', () => {
+    _pendingPhotoUnitId = null;
     elements.photoFileInput.click();
   });
 
@@ -800,12 +835,16 @@ function initPhotoInput() {
     if (!file) return;
     elements.photoFileInput.value = '';
 
-    const indicator = addSystemMessage('📸 Analyse en cours...');
+    const targetUnitId = _pendingPhotoUnitId || STATE.unitId;
+    _pendingPhotoUnitId = null;
+
+    const fromModal = !!_pendingPhotoUnitId;
+    const indicator = fromModal ? null : addSystemMessage('📸 Analyse en cours...');
 
     const reader = new FileReader();
     reader.onload = async () => {
       const base64 = reader.result.split(',')[1];
-      const unit = getUnit(STATE.unitId);
+      const unit = getUnit(targetUnitId);
       const snuUnit = unit?.snu_level || 'SNU 5A';
       const endpoint = (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost')
         ? 'http://localhost:3000/api/analyze-image'
@@ -817,15 +856,33 @@ function initPhotoInput() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ imageBase64: base64, snuUnit })
         });
-
         if (!resp.ok) throw new Error('analyze-image failed');
         const ctx = await resp.json();
-        STATE.pageContext = ctx;
-        indicator.textContent = '✅ Page analysée ! Vocabulaire et structures chargés.';
-        indicator.classList.add('message--system-ok');
+
+        // Save to Supabase
+        if (window.saveLessonContent) {
+          await window.saveLessonContent(targetUnitId, ctx);
+        }
+
+        // If for current unit, update pageContext
+        if (targetUnitId === STATE.unitId) {
+          STATE.pageContext = ctx;
+        }
+
+        // Update photo button in modal if still open
+        const photoBtn = document.querySelector(`.unit-selector-item__photo[data-unit-id="${targetUnitId}"]`);
+        if (photoBtn) photoBtn.classList.add('has-content');
+
+        if (indicator) {
+          indicator.textContent = '✅ Page analysée ! Vocabulaire et structures chargés.';
+          indicator.classList.add('message--system-ok');
+        } else {
+          showAlert('success', `✅ Page analysée pour ${unit?.title || targetUnitId}`);
+        }
       } catch (err) {
         console.error('Photo analysis error:', err);
-        indicator.textContent = '❌ Analyse échouée. Réessayez.';
+        if (indicator) indicator.textContent = '❌ Analyse échouée. Réessayez.';
+        else showAlert('error', '❌ Analyse échouée.');
       }
     };
     reader.readAsDataURL(file);
