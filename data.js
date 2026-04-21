@@ -251,12 +251,12 @@ const UNITS = {
     }
   },
 
-  // UNIT 1-2: 운동과 건강 (Exercise & Health) — SCAFFOLD
+  // UNIT 1-2: 건강한 신체 (Healthy Body) — SCAFFOLD
   unit_1_2: {
     id: "unit_1_2",
-    title: "운동과 건강",
-    subtitle: "Exercise & Health",
-    theme: "Physical activity and wellness",
+    title: "건강한 신체",
+    subtitle: "Healthy Body",
+    theme: "Physical health and the body",
     snu_level: "5A_1-2",
     
     vocabulary: [],
@@ -283,12 +283,12 @@ const UNITS = {
     }
   },
 
-  // UNIT 2-1: 생활 습관 (Daily Habits) — SCAFFOLD
+  // UNIT 2-1: 행복의 비결 (Secret of Happiness) — SCAFFOLD
   unit_2_1: {
     id: "unit_2_1",
-    title: "생활 습관",
-    subtitle: "Daily Habits",
-    theme: "Routines and lifestyle",
+    title: "행복의 비결",
+    subtitle: "Secret of Happiness",
+    theme: "What makes people happy and fulfilled",
     snu_level: "5A_2-1",
     
     vocabulary: [],
@@ -315,12 +315,12 @@ const UNITS = {
     }
   },
 
-  // UNIT 2-2: 환경 의식 (Environmental Awareness) — SCAFFOLD
+  // UNIT 2-2: 휴식이 있는 삶 (Life with Rest) — SCAFFOLD
   unit_2_2: {
     id: "unit_2_2",
-    title: "환경 의식",
-    subtitle: "Environmental Awareness",
-    theme: "Sustainability and eco-consciousness",
+    title: "휴식이 있는 삶",
+    subtitle: "Life with Rest",
+    theme: "Rest, leisure and work-life balance",
     snu_level: "5A_2-2",
     
     vocabulary: [],
@@ -347,12 +347,12 @@ const UNITS = {
     }
   },
 
-  // UNIT 3-1: 직업과 꿈 (Career & Dreams) — SCAFFOLD
+  // UNIT 3-1: 언어와 문화 (Language & Culture) — SCAFFOLD
   unit_3_1: {
     id: "unit_3_1",
-    title: "직업과 꿈",
-    subtitle: "Career & Dreams",
-    theme: "Professional aspirations and work",
+    title: "언어와 문화",
+    subtitle: "Language & Culture",
+    theme: "The relationship between language and culture",
     snu_level: "5A_3-1",
     
     vocabulary: [],
@@ -379,12 +379,12 @@ const UNITS = {
     }
   },
 
-  // UNIT 3-2: 관계와 소통 (Relationships & Communication) — SCAFFOLD
+  // UNIT 3-2: 언어 학습 (Language Learning) — SCAFFOLD
   unit_3_2: {
     id: "unit_3_2",
-    title: "관계와 소통",
-    subtitle: "Relationships & Communication",
-    theme: "Interpersonal connections",
+    title: "언어 학습",
+    subtitle: "Language Learning",
+    theme: "How people learn and acquire languages",
     snu_level: "5A_3-2",
     
     vocabulary: [],
@@ -411,12 +411,12 @@ const UNITS = {
     }
   },
 
-  // UNIT 4-1: 문화와 예술 (Culture & Arts) — SCAFFOLD
+  // UNIT 4-1: 문화와 사고방식 (Culture & Thinking) — SCAFFOLD
   unit_4_1: {
     id: "unit_4_1",
-    title: "문화와 예술",
-    subtitle: "Culture & Arts",
-    theme: "Cultural appreciation and creativity",
+    title: "문화와 사고방식",
+    subtitle: "Culture & Thinking",
+    theme: "How culture shapes the way we think",
     snu_level: "5A_4-1",
     
     vocabulary: [],
@@ -443,12 +443,12 @@ const UNITS = {
     }
   },
 
-  // UNIT 4-2: 여행과 경험 (Travel & Experience) — SCAFFOLD
+  // UNIT 4-2: 고정 관념과 가치관 (Stereotypes & Values) — SCAFFOLD
   unit_4_2: {
     id: "unit_4_2",
-    title: "여행과 경험",
-    subtitle: "Travel & Experience",
-    theme: "Exploration and memories",
+    title: "고정 관념과 가치관",
+    subtitle: "Stereotypes & Values",
+    theme: "Challenging stereotypes and personal values",
     snu_level: "5A_4-2",
     
     vocabulary: [],
@@ -472,6 +472,142 @@ const UNITS = {
         "언제 갔어요?",
         "뭐가 가장 좋았어요?"
       ]
+    }
+  },
+
+  // UNIT 5-1: 기후 변화 (Climate Change) — SCAFFOLD
+  unit_5_1: {
+    id: "unit_5_1",
+    title: "기후 변화",
+    subtitle: "Climate Change",
+    theme: "Global warming and its effects",
+    snu_level: "5A_5-1",
+    vocabulary: [],
+    targetGrammar: ["-을뿐더러", "-(으)ㄹ수록"],
+    questions: {
+      freeChat: ["기후 변화에 대해 어떻게 생각해요?", "일상에서 환경을 위해 뭘 해요?"],
+      debate: ["개인의 행동이 기후 변화를 막을 수 있을까요?"],
+      speaking: ["기후 변화의 원인과 해결책을 설명해 보세요."],
+      speedDrill: ["기후 변화가 왜 문제예요?", "뭘 할 수 있어요?"]
+    }
+  },
+
+  // UNIT 5-2: 독특한 지형의 여행지 (Unique Terrain) — SCAFFOLD
+  unit_5_2: {
+    id: "unit_5_2",
+    title: "독특한 지형의 여행지",
+    subtitle: "Unique Terrain",
+    theme: "Travel destinations with unique geography",
+    snu_level: "5A_5-2",
+    vocabulary: [],
+    targetGrammar: ["-던", "-았/었던"],
+    questions: {
+      freeChat: ["특별한 지형을 가진 곳에 가 본 적 있어요?", "어떤 자연 경관을 좋아해요?"],
+      debate: ["자연 관광지 개발이 환경에 미치는 영향은요?"],
+      speaking: ["인상적인 자연 여행지를 소개해 보세요."],
+      speedDrill: ["가장 가고 싶은 자연 명소가 어디예요?", "왜요?"]
+    }
+  },
+
+  // UNIT 6-1: 도시와 환경 (City & Environment) — SCAFFOLD
+  unit_6_1: {
+    id: "unit_6_1",
+    title: "도시와 환경",
+    subtitle: "City & Environment",
+    theme: "Urban life and its environmental impact",
+    snu_level: "5A_6-1",
+    vocabulary: [],
+    targetGrammar: ["-는 한", "-기 마련이다"],
+    questions: {
+      freeChat: ["도시에 사는 것의 장단점이 뭐예요?", "살기 좋은 도시는 어떤 곳이에요?"],
+      debate: ["도시 확장이 환경에 미치는 영향을 어떻게 봐요?"],
+      speaking: ["이상적인 도시 환경에 대해 이야기해 보세요."],
+      speedDrill: ["어떤 도시에 살고 싶어요?", "왜요?"]
+    }
+  },
+
+  // UNIT 6-2: 주거 공간 (Living Space) — SCAFFOLD
+  unit_6_2: {
+    id: "unit_6_2",
+    title: "주거 공간",
+    subtitle: "Living Space",
+    theme: "Housing, home environments and living preferences",
+    snu_level: "5A_6-2",
+    vocabulary: [],
+    targetGrammar: ["-(으)ㄴ/는 데에 비해서", "-다 보면"],
+    questions: {
+      freeChat: ["어떤 집에서 살고 싶어요?", "현재 사는 곳에서 마음에 드는 점이 뭐예요?"],
+      debate: ["혼자 사는 것과 함께 사는 것, 어느 쪽이 더 좋을까요?"],
+      speaking: ["이상적인 주거 공간을 묘사해 보세요."],
+      speedDrill: ["지금 어디에 살아요?", "어떤 집에서 살고 싶어요?"]
+    }
+  },
+
+  // UNIT 7-1: 인간관계와 심리 (Relationships & Psychology) — SCAFFOLD
+  unit_7_1: {
+    id: "unit_7_1",
+    title: "인간관계와 심리",
+    subtitle: "Relationships & Psychology",
+    theme: "Human connections and psychological aspects",
+    snu_level: "5A_7-1",
+    vocabulary: [],
+    targetGrammar: ["-기 마련이다", "-(으)ㄹ 따름이다"],
+    questions: {
+      freeChat: ["인간관계에서 가장 중요한 것이 뭐라고 생각해요?", "갈등을 어떻게 해결해요?"],
+      debate: ["SNS가 인간관계에 도움이 될까요, 방해가 될까요?"],
+      speaking: ["좋은 인간관계를 유지하는 방법에 대해 이야기해 보세요."],
+      speedDrill: ["친한 친구가 몇 명이에요?", "어떻게 관계를 유지해요?"]
+    }
+  },
+
+  // UNIT 7-2: 심리와 성격 (Psychology & Personality) — SCAFFOLD
+  unit_7_2: {
+    id: "unit_7_2",
+    title: "심리와 성격",
+    subtitle: "Psychology & Personality",
+    theme: "Personality types and psychological traits",
+    snu_level: "5A_7-2",
+    vocabulary: [],
+    targetGrammar: ["-는 것 같다", "-더라고요"],
+    questions: {
+      freeChat: ["자신의 성격을 어떻게 묘사할 수 있어요?", "성격이 삶에 미치는 영향은요?"],
+      debate: ["성격은 타고나는 것일까요, 만들어지는 것일까요?"],
+      speaking: ["자신의 성격 특징과 그것이 삶에 미치는 영향을 이야기해 보세요."],
+      speedDrill: ["내향적이에요, 외향적이에요?", "가장 강한 성격 특징이 뭐예요?"]
+    }
+  },
+
+  // UNIT 8-1: 평생 직업 (Lifelong Career) — SCAFFOLD
+  unit_8_1: {
+    id: "unit_8_1",
+    title: "평생 직업",
+    subtitle: "Lifelong Career",
+    theme: "Long-term career paths and professional identity",
+    snu_level: "5A_8-1",
+    vocabulary: [],
+    targetGrammar: ["-(으)라면 꼽을 수 있다", "-기로 하다"],
+    questions: {
+      freeChat: ["평생 하고 싶은 일이 뭐예요?", "직업을 선택할 때 가장 중요한 것이 뭐예요?"],
+      debate: ["한 직장에서 평생 일하는 것이 좋을까요?"],
+      speaking: ["이상적인 직업과 그 이유를 설명해 보세요."],
+      speedDrill: ["현재 직업이 뭐예요?", "왜 그 일을 선택했어요?"]
+    }
+  },
+
+  // UNIT 8-2: 변화하는 직업 (Changing Jobs) — SCAFFOLD
+  unit_8_2: {
+    id: "unit_8_2",
+    title: "변화하는 직업",
+    subtitle: "Changing Jobs",
+    theme: "Career changes and evolving job market",
+    snu_level: "5A_8-2",
+    vocabulary: [],
+    targetGrammar: ["-다 보면", "-(으)ㄹ수록"],
+    questions: {
+      freeChat: ["직업을 바꾼 적 있어요? 또는 바꾸고 싶어요?", "미래에 없어질 직업이 뭐가 있을까요?"],
+      debate: ["AI가 인간의 직업을 대체할 수 있을까요?"],
+      speaking: ["미래의 직업 시장이 어떻게 변할지 예측해 보세요."],
+      speedDrill: ["어떤 직업이 미래에 유망할까요?", "왜요?"]
     }
   }
 };
