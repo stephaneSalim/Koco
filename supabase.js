@@ -143,37 +143,36 @@ async function loadUserStats() {
 window.loadUserStats = loadUserStats;
 
 async function saveLessonContent(unitId, content) {
-  try {
-    await window.supabaseClient
-      .from('lesson_content')
-      .upsert({
-        unit_id: unitId,
-        user_id: window.kocoUserId,
-        vocabulary: content.vocabulary,
-        structures: content.structures,
-        theme: content.theme,
-        level: content.level,
-        conversation_starters: content.conversation_starters,
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'unit_id,user_id' });
+  const { error } = await window.supabaseClient
+    .from('lesson_content')
+    .upsert({
+      unit_id: unitId,
+      user_id: window.kocoUserId,
+      vocabulary: content.vocabulary || [],
+      structures: content.structures || [],
+      theme: content.theme || '',
+      level: content.level || '',
+      conversation_starters: content.conversation_starters || [],
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'unit_id,user_id', ignoreDuplicates: false });
+
+  if (error) {
+    console.error('saveLessonContent error:', JSON.stringify(error));
+  } else {
     console.log('Content saved for unit:', unitId);
-  } catch(e) {
-    console.log('Save content error:', e);
   }
 }
 
 async function getLessonContent(unitId) {
-  try {
-    const { data } = await window.supabaseClient
-      .from('lesson_content')
-      .select('*')
-      .eq('unit_id', unitId)
-      .eq('user_id', window.kocoUserId)
-      .single();
-    return data || null;
-  } catch(e) {
-    return null;
-  }
+  const { data, error } = await window.supabaseClient
+    .from('lesson_content')
+    .select('*')
+    .eq('unit_id', unitId)
+    .eq('user_id', window.kocoUserId)
+    .maybeSingle();
+
+  if (error) console.log('getLessonContent error:', error.message);
+  return data || null;
 }
 
 window.saveLessonContent = saveLessonContent;
