@@ -6,7 +6,8 @@
 //#region App state
 const STATE = {
   mode: 'freeChat',
-  unitId: 'unit_1_1',
+  unitId: 'snu_5a_1_1',
+  activeUnit: null,
   isListening: false,
   isProcessing: false,
   usedQuestions: {
@@ -26,6 +27,28 @@ const STATE = {
   sessionCorrections: [],
   pageContext: null
 };
+
+// Normalize a Supabase snu_units row to a stable unit object used throughout the app
+function normalizeSNUUnit(row) {
+  return {
+    id: row.id,
+    title: row.title_ko || row.id,
+    subtitle: row.title_en || '',
+    theme: row.sous_theme || '',
+    snu_level: `${row.level}_${row.unit_number}-${row.lesson_number}`,
+    grand_theme_label_fr: row.grand_themes?.label_fr || '',
+    sous_theme: row.sous_theme || '',
+    level: row.level || '',
+    unit_number: row.unit_number,
+    lesson_number: row.lesson_number
+  };
+}
+
+// Map Supabase ID (snu_5a_1_1) → data.js key (unit_1_1) for vocab/questions fallback
+function getDataUnitId(snuId) {
+  const m = snuId && snuId.match(/snu_\w+_(\d+)_(\d+)/);
+  return m ? `unit_${m[1]}_${m[2]}` : null;
+}
 
 const STORAGE_KEYS = {
   progress: 'koco_progress',
@@ -213,7 +236,7 @@ function showAlert(type, text) {
 }
 
 function updateHeader() {
-  const unit = getUnit(STATE.unitId);
+  const unit = STATE.activeUnit;
   if (elements.headerUnitTitle) {
     elements.headerUnitTitle.textContent = unit ? unit.title : '단원 선택';
   }
@@ -338,7 +361,7 @@ function setQuestion(prompt) {
 }
 
 function nextQuestion() {
-  const unit = getUnit(STATE.unitId);
+  const unit = getUnit(getDataUnitId(STATE.unitId));
   if (!unit) return;
 
   const questions = unit.questions[STATE.mode];
@@ -428,9 +451,9 @@ function updateMode(newMode) {
   conversationManager.clear();
   elements.conversation.innerHTML = '';
 
-  const unit = getUnit(STATE.unitId);
-  if (unit?.snu_level && window.getGMSSentences) {
-    const snuUnit = unit.snu_level.replace(/-\d+$/, '');
+  const unit = STATE.activeUnit;
+  if (unit?.level && window.getGMSSentences) {
+    const snuUnit = `${unit.level}_${unit.unit_number}`;
     window.getGMSSentences(snuUnit, 15).then(sentences => { STATE.gmsSentences = sentences; });
   }
 
@@ -545,8 +568,9 @@ async function processUserInput(text) {
   STATE.session.totalUserResponses += 1;
   STATE.session.exchangeCount += 1;
 
-  const unitContext = getUnit(STATE.unitId);
-  const context = getSessionContext(STATE.unitId, parseInt(unitContext?.snu_level?.[3] || '3', 10) || 3);
+  const dataUnitId = getDataUnitId(STATE.unitId);
+  const context = getSessionContext(dataUnitId, parseInt(STATE.activeUnit?.level?.[1] || '3', 10) || 3);
+  context.unit = STATE.activeUnit || context.unit;
   const systemPrompt = generateSystemPrompt(context, STATE.mode, STATE.gmsSentences, STATE.pageContext);
 
   STATE.isProcessing = true;
@@ -636,28 +660,38 @@ let _pendingPhotoUnitId = null;
 async function buildUnitSelectorList() {
   const list = elements.unitSelectorList;
   if (!list) return;
+  list.innerHTML = '<div style="padding:1rem;color:#999;text-align:center">불러오는 중...</div>';
+
+  const allUnits = window.getAllSNUUnits ? await window.getAllSNUUnits() : [];
+
   list.innerHTML = '';
 
+  if (allUnits.length === 0) {
+    list.innerHTML = '<div style="padding:1rem;color:#999;text-align:center">단원을 불러올 수 없습니다.</div>';
+    return;
+  }
+
   const groups = {};
-  Object.values(UNITS).forEach(unit => {
-    const match = unit.id.match(/unit_(\d+)_/);
-    const groupKey = match ? match[1] : '?';
-    if (!groups[groupKey]) groups[groupKey] = [];
-    groups[groupKey].push(unit);
+  allUnits.forEach(row => {
+    const key = row.level || '?';
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(row);
   });
 
-  Object.keys(groups).sort().forEach(key => {
+  Object.keys(groups).sort().forEach(levelKey => {
     const groupEl = document.createElement('div');
     groupEl.className = 'unit-selector-group';
 
     const groupTitle = document.createElement('div');
     groupTitle.className = 'unit-selector-group-title';
-    groupTitle.textContent = `단원 ${key}`;
+    groupTitle.textContent = `SNU ${levelKey}`;
     groupEl.appendChild(groupTitle);
 
-    groups[key].forEach(unit => {
-      const row = document.createElement('div');
-      row.className = 'unit-selector-item' + (unit.id === STATE.unitId ? ' active' : '');
+    groups[levelKey].forEach(row => {
+      const unit = normalizeSNUUnit(row);
+
+      const itemRow = document.createElement('div');
+      itemRow.className = 'unit-selector-item' + (unit.id === STATE.unitId ? ' active' : '');
 
       const infoEl = document.createElement('div');
       infoEl.className = 'unit-selector-item__info';
@@ -672,7 +706,7 @@ async function buildUnitSelectorList() {
 
       infoEl.appendChild(titleEl);
       infoEl.appendChild(subEl);
-      infoEl.addEventListener('click', () => selectUnit(unit.id));
+      infoEl.addEventListener('click', () => selectUnit(unit.id, unit));
 
       const photoBtn = document.createElement('button');
       photoBtn.type = 'button';
@@ -687,16 +721,15 @@ async function buildUnitSelectorList() {
         elements.photoFileInput.click();
       });
 
-      // Check if content already saved
       if (window.getLessonContent) {
         window.getLessonContent(unit.id).then(content => {
           if (content) photoBtn.classList.add('has-content');
         });
       }
 
-      row.appendChild(infoEl);
-      row.appendChild(photoBtn);
-      groupEl.appendChild(row);
+      itemRow.appendChild(infoEl);
+      itemRow.appendChild(photoBtn);
+      groupEl.appendChild(itemRow);
     });
 
     list.appendChild(groupEl);
@@ -712,42 +745,26 @@ function closeUnitSelector() {
   elements.unitSelectorModal.classList.add('hidden');
 }
 
-function selectUnit(unitId) {
-  if (!UNITS[unitId]) return;
+function selectUnit(unitId, unitObj) {
   STATE.unitId = unitId;
+  STATE.activeUnit = unitObj || null;
   closeUnitSelector();
 
   conversationManager.clear();
   elements.conversation.innerHTML = '';
   STATE.pageContext = null;
 
-  const unit = getUnit(STATE.unitId);
-
-  // Load saved lesson content if available
   if (window.getLessonContent) {
-    window.getLessonContent(unit.id).then(content => {
+    window.getLessonContent(unitId).then(content => {
       if (content) STATE.pageContext = content;
     });
   }
 
-  if (unit?.snu_level && window.getGMSSentences) {
-    const snuUnit = unit.snu_level.replace(/-\d+$/, '');
-    window.getGMSSentences(snuUnit, 15).then(sentences => {
+  const unit = STATE.activeUnit;
+  if (unit?.level && window.getGMSSentences) {
+    window.getGMSSentences(`${unit.level}_${unit.unit_number}`, 15).then(sentences => {
       STATE.gmsSentences = sentences;
     });
-  }
-
-  if (unit?.snu_level && window.getSNUUnit) {
-    const m = unit.snu_level.match(/^(\w+)_(\d+)-(\d+)$/);
-    if (m) {
-      window.getSNUUnit(m[1], m[2], m[3]).then(snuData => {
-        if (snuData) {
-          unit.grand_theme_label_fr = snuData.grand_themes?.label_fr || '';
-          unit.sous_theme = snuData.sous_theme || '';
-          unit.level = snuData.level || '';
-        }
-      });
-    }
   }
 
   updateHeader();
@@ -814,9 +831,9 @@ function resetSession() {
   STATE.session.structureHits = new Set();
   updateFluencyIndicator();
 
-  const unit = getUnit(STATE.unitId);
-  if (unit?.snu_level && window.getGMSSentences) {
-    const snuUnit = unit.snu_level.replace(/-\d+$/, '');
+  const unit = STATE.activeUnit;
+  if (unit?.level && window.getGMSSentences) {
+    const snuUnit = `${unit.level}_${unit.unit_number}`;
     window.getGMSSentences(snuUnit, 15).then(sentences => {
       STATE.gmsSentences = sentences;
     });
@@ -857,8 +874,8 @@ function initPhotoInput() {
     const reader = new FileReader();
     reader.onload = async () => {
       const base64 = reader.result.split(',')[1];
-      const unit = getUnit(targetUnitId);
-      const snuUnit = unit?.snu_level || 'SNU 5A';
+      const unit = targetUnitId === STATE.unitId ? STATE.activeUnit : null;
+      const snuUnit = unit ? `${unit.level}_${unit.unit_number}-${unit.lesson_number}` : 'SNU 5A';
       const endpoint = (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost')
         ? 'http://localhost:3000/api/analyze-image'
         : '/api/analyze-image';
@@ -972,27 +989,22 @@ function initApp() {
   initInputBar();
   initPhotoInput();
 
-  const initUnit = getUnit(STATE.unitId);
-  if (initUnit?.snu_level && window.getGMSSentences) {
-    // "5A_1-1" → "5A_1"
-    const snuUnit = initUnit.snu_level.replace(/-\d+$/, '');
-    window.getGMSSentences(snuUnit, 15).then(sentences => {
-      STATE.gmsSentences = sentences;
-      console.log(`GMS: ${sentences.length} phrases chargées pour ${snuUnit}`);
-    });
-  }
-
-  if (initUnit?.snu_level && window.getSNUUnit) {
-    const m = initUnit.snu_level.match(/^(\w+)_(\d+)-(\d+)$/);
-    if (m) {
-      window.getSNUUnit(m[1], m[2], m[3]).then(snuData => {
-        if (snuData) {
-          initUnit.grand_theme_label_fr = snuData.grand_themes?.label_fr || '';
-          initUnit.sous_theme = snuData.sous_theme || '';
-          initUnit.level = snuData.level || '';
+  if (window.getAllSNUUnits) {
+    window.getAllSNUUnits().then(allUnits => {
+      const firstRow = allUnits.find(u => u.id === STATE.unitId) || allUnits[0];
+      if (firstRow) {
+        STATE.unitId = firstRow.id;
+        STATE.activeUnit = normalizeSNUUnit(firstRow);
+        const snuUnit = `${firstRow.level}_${firstRow.unit_number}`;
+        if (window.getGMSSentences) {
+          window.getGMSSentences(snuUnit, 15).then(sentences => {
+            STATE.gmsSentences = sentences;
+            console.log(`GMS: ${sentences.length} phrases chargées pour ${snuUnit}`);
+          });
         }
-      });
-    }
+        updateHeader();
+      }
+    });
   }
 
   const apiKey = getApiKey();

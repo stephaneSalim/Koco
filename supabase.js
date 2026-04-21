@@ -177,3 +177,27 @@ async function getLessonContent(unitId) {
 
 window.saveLessonContent = saveLessonContent;
 window.getLessonContent = getLessonContent;
+
+async function getAllSNUUnits() {
+  const { data, error } = await window.supabaseClient
+    .from('snu_units')
+    .select('*, grand_themes(label_fr, label_ko)')
+    .order('level')
+    .order('unit_number')
+    .order('lesson_number');
+  if (error) console.error('getAllSNUUnits error:', JSON.stringify(error));
+  return data || [];
+}
+window.getAllSNUUnits = getAllSNUUnits;
+
+async function getSNUUnit(level, unitNumber, lessonNumber) {
+  const id = `snu_${level.toLowerCase()}_${unitNumber}_${lessonNumber}`;
+  const { data, error } = await window.supabaseClient
+    .from('snu_units')
+    .select('*, grand_themes(label_fr, label_ko)')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) console.error('getSNUUnit error:', JSON.stringify(error));
+  return data || null;
+}
+window.getSNUUnit = getSNUUnit;
