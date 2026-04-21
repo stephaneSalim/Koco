@@ -419,6 +419,18 @@ function updateMode(newMode) {
   if (!MODE_INFO[newMode]) return;
   STATE.mode = newMode;
   STATE.usedQuestions[newMode] = STATE.usedQuestions[newMode] || new Set();
+  STATE.messageCount = 0;
+  STATE.sessionCorrections = [];
+
+  conversationManager.clear();
+  elements.conversation.innerHTML = '';
+
+  const unit = getUnit(STATE.unitId);
+  if (unit?.snu_level && window.getGMSSentences) {
+    const snuUnit = unit.snu_level.replace(/-\d+$/, '');
+    window.getGMSSentences(snuUnit, 15).then(sentences => { STATE.gmsSentences = sentences; });
+  }
+
   updateHeader();
   updateNav();
   nextQuestion();
