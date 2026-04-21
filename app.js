@@ -49,8 +49,10 @@ const elements = {
   conversation: document.querySelector('.conversation'),
   transcription: document.querySelector('.transcription'),
   transcriptionIndicator: document.querySelector('.transcription__indicator'),
-  micButton: document.querySelector('.mic-button'),
+  micButton: document.getElementById('inputBarMicBtn'),
   micStatus: document.querySelector('.mic-status'),
+  userTextInput: document.getElementById('userTextInput'),
+  inputBarSendBtn: document.getElementById('inputBarSendBtn'),
   navTabs: Array.from(document.querySelectorAll('.nav-tab')),
   fluencyBarFill: document.querySelector('.fluency-bar__fill'),
   fluencyBadge: document.querySelector('.fluency-badge'),
@@ -68,7 +70,7 @@ const elements = {
   transcriptionPanel: document.querySelector('.transcription-panel'),
   fluencyBar: document.querySelector('.fluency-bar'),
   fluencyBadge: document.querySelector('.fluency-badge'),
-  micContainer: document.querySelector('.mic-container')
+  micContainer: document.querySelector('.input-bar')
 };
 
 let ttsPulseInterval = null;
@@ -284,10 +286,10 @@ function showTypingIndicator(show) {
 }
 
 function setMicState(state) {
-  elements.micButton.classList.remove('mic-button--listening', 'mic-button--processing');
+  elements.micButton.classList.remove('mic-button--listening', 'mic-button--processing', 'active');
   elements.micButton.disabled = false;
   if (state === 'listening') {
-    elements.micButton.classList.add('mic-button--listening');
+    elements.micButton.classList.add('mic-button--listening', 'active');
     elements.micStatus.textContent = '듣는 중...';
   } else if (state === 'processing') {
     elements.micButton.classList.add('mic-button--processing');
@@ -763,6 +765,35 @@ function resetSession() {
 
 //#endregion
 
+//#region Input bar
+function initInputBar() {
+  const input = elements.userTextInput;
+  const sendBtn = elements.inputBarSendBtn;
+  const micBtn = elements.micButton;
+
+  function syncButtons() {
+    const hasText = input.value.trim().length > 0;
+    sendBtn.classList.toggle('hidden', !hasText);
+    micBtn.classList.toggle('input-bar__mic--hidden', hasText);
+  }
+
+  function submitText() {
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    syncButtons();
+    processUserInput(text);
+  }
+
+  input.addEventListener('input', syncButtons);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); submitText(); }
+  });
+  sendBtn.addEventListener('click', submitText);
+}
+
+//#endregion
+
 //#region Initialization
 function initApp() {
   conversationManager = new ConversationManager();
@@ -799,6 +830,7 @@ function initApp() {
   updateTtsButton();
 
   initSpeechRecognition();
+  initInputBar();
 
   const initUnit = getUnit(STATE.unitId);
   if (initUnit?.snu_level && window.getGMSSentences) {

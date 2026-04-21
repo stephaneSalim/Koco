@@ -452,6 +452,63 @@ input, button, textarea, select {
 .summary-btn--primary { background: #1a73e8; color: white; }
 .summary-btn--secondary { background: #f1f3f4; color: #333; }
 
+.input-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: white;
+  border-top: 1px solid #eee;
+  flex-shrink: 0;
+}
+.input-bar__field {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1px solid #ddd;
+  border-radius: 24px;
+  font-size: 0.95rem;
+  outline: none;
+  background: #f8f9fa;
+  min-width: 0;
+}
+.input-bar__field:focus {
+  border-color: #1a73e8;
+  background: white;
+}
+.input-bar__mic {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: #f1f3f4;
+  font-size: 1.1rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.2s, color 0.2s;
+}
+.input-bar__mic.active {
+  background: #1a73e8;
+  color: white;
+}
+.input-bar__mic--hidden {
+  opacity: 0.3;
+  pointer-events: none;
+}
+.input-bar__send {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: #1a73e8;
+  color: white;
+  font-size: 1.1rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.input-bar__send:active { background: #1558b0; }
+.input-bar__send.hidden { display: none; }
+
 .stats-screen {
   flex: 1;
   overflow-y: auto;
