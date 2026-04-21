@@ -737,6 +737,19 @@ function selectUnit(unitId) {
     });
   }
 
+  if (unit?.snu_level && window.getSNUUnit) {
+    const m = unit.snu_level.match(/^(\w+)_(\d+)-(\d+)$/);
+    if (m) {
+      window.getSNUUnit(m[1], m[2], m[3]).then(snuData => {
+        if (snuData) {
+          unit.grand_theme_label_fr = snuData.grand_themes?.label_fr || '';
+          unit.sous_theme = snuData.sous_theme || '';
+          unit.level = snuData.level || '';
+        }
+      });
+    }
+  }
+
   updateHeader();
   nextQuestion();
 }
@@ -967,6 +980,19 @@ function initApp() {
       STATE.gmsSentences = sentences;
       console.log(`GMS: ${sentences.length} phrases chargées pour ${snuUnit}`);
     });
+  }
+
+  if (initUnit?.snu_level && window.getSNUUnit) {
+    const m = initUnit.snu_level.match(/^(\w+)_(\d+)-(\d+)$/);
+    if (m) {
+      window.getSNUUnit(m[1], m[2], m[3]).then(snuData => {
+        if (snuData) {
+          initUnit.grand_theme_label_fr = snuData.grand_themes?.label_fr || '';
+          initUnit.sous_theme = snuData.sous_theme || '';
+          initUnit.level = snuData.level || '';
+        }
+      });
+    }
   }
 
   const apiKey = getApiKey();

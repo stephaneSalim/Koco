@@ -102,6 +102,9 @@ function generateSystemPrompt(context, mode, gmsSentences, pageContext) {
 
   const unitTitle = unit ? `${unit.title} — ${unit.subtitle}` : '자유 주제';
   const unitTheme = unit?.theme || '';
+  const grandTheme = unit?.grand_theme_label_fr || '';
+  const sousTheme = unit?.sous_theme || '';
+  const snuLevel = unit?.level || '';
 
   const gmsLines = gmsSentences && gmsSentences.length > 0
     ? gmsSentences.map(s => `  • ${s.text_kr} — ${s.text_en}`).join('\n')
@@ -151,6 +154,9 @@ NOTE: (one short explanation in French)
 NIVEAU : 5급-6급 (avancé)
 STYLE : Académique, argumentatif, rigoureux
 THÈME : ${unitTitle}
+${grandTheme ? `GRAND THÈME : ${grandTheme}` : ''}
+${sousTheme ? `SOUS-THÈME : ${sousTheme}` : ''}
+${snuLevel ? `NIVEAU SNU : ${snuLevel}` : ''}
 ${unitTheme ? `CONTEXTE : ${unitTheme}` : ''}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -192,6 +198,9 @@ Commence par : 오늘의 토론 주제는 "${unit?.title || '주제'}"입니다.
 NIVEAU : 3급-4급 (intermédiaire)
 STYLE : Conversationnel, chaleureux, patient
 THÈME DU JOUR : ${unitTitle}
+${grandTheme ? `GRAND THÈME : ${grandTheme}` : ''}
+${sousTheme ? `SOUS-THÈME : ${sousTheme}` : ''}
+${snuLevel ? `NIVEAU SNU : ${snuLevel}` : ''}
 ${unitTheme ? `CONTEXTE : ${unitTheme}` : ''}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
