@@ -2,9 +2,14 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
   const { text } = req.body;
+  if (!text) return res.status(400).json({ error: 'text required' });
+
+  const voiceId = 'sf8Bpb1IU97NI9BHSMRf';
+
   const response = await fetch(
-    'https://api.elevenlabs.io/v1/text-to-speech/pNInz6obpgDQGcFmaJgB',
+    `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
     {
       method: 'POST',
       headers: {
@@ -12,19 +17,27 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        text: text,
+        text,
         model_id: 'eleven_multilingual_v2',
-        voice_settings: { stability: 0.5, similarity_boost: 0.75 }
+        voice_settings: {
+          stability: 0.5,
+          similarity_boost: 0.75,
+          style: 0.3,
+          use_speaker_boost: true
+        }
       })
     }
   );
-  console.log('TTS status:', response.status);
+
+  console.log('ElevenLabs TTS status:', response.status);
+
   if (!response.ok) {
     const errorText = await response.text();
     console.error('ElevenLabs error:', errorText);
     return res.status(response.status).json({ error: errorText });
   }
+
   const audioBuffer = await response.arrayBuffer();
-  res.setHeader('Content-Type', 'audio/mpeg');
-  res.send(Buffer.from(audioBuffer));
+  const base64Audio = Buffer.from(audioBuffer).toString('base64');
+  res.json({ audio: base64Audio, format: 'mp3' });
 }

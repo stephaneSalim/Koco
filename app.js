@@ -148,42 +148,98 @@ function stopTtsPulse() {
   elements.ttsToggleButton.style.transform = '';
 }
 
+let _currentTtsAudio = null;
+
 function stopTts() {
   stopTtsPulse();
+  if (_currentTtsAudio) {
+    _currentTtsAudio.pause();
+    _currentTtsAudio = null;
+  }
   if (window.speechSynthesis) {
     window.speechSynthesis.cancel();
   }
 }
 
+function cleanForTTS(text) {
+  return text
+    .replace(/\[CORRECTION\][\s\S]*?\[\/CORRECTION\]/g, '')
+    .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '')
+    .trim();
+}
+
+function speakKoreanFallback(text, resolve) {
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = 'ko-KR';
+  utterance.rate = 0.9;
+  utterance.pitch = 1.0;
+  const voices = window.speechSynthesis.getVoices();
+  const koreanVoice = voices.find(v => v.lang.startsWith('ko'));
+  if (koreanVoice) utterance.voice = koreanVoice;
+  const done = () => {
+    STATE.isSpeaking = false;
+    elements.micButton.disabled = false;
+    stopTtsPulse();
+    setMicState('idle');
+    resolve();
+  };
+  utterance.onend = done;
+  utterance.onerror = done;
+  window.speechSynthesis.speak(utterance);
+}
+
 function speakKorean(text) {
-  return new Promise((resolve) => {
-    // Stop mic before speaking to prevent feedback loop
-    if (STATE.isListening) recognition.abort();
+  return new Promise(async (resolve) => {
+    if (STATE.isListening && recognition) recognition.abort();
     STATE.isSpeaking = true;
     elements.micButton.disabled = true;
+    startTtsPulse();
 
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'ko-KR';
-    utterance.rate = 0.9;
-    utterance.pitch = 1.0;
-
-    const voices = window.speechSynthesis.getVoices();
-    const koreanVoice = voices.find(v => v.lang.startsWith('ko'));
-    if (koreanVoice) utterance.voice = koreanVoice;
+    const cleaned = cleanForTTS(text);
+    if (!cleaned) {
+      STATE.isSpeaking = false;
+      elements.micButton.disabled = false;
+      stopTtsPulse();
+      resolve();
+      return;
+    }
 
     const done = () => {
       STATE.isSpeaking = false;
       elements.micButton.disabled = false;
       stopTtsPulse();
       setMicState('idle');
+      _currentTtsAudio = null;
       resolve();
     };
 
-    startTtsPulse();
-    utterance.onend = done;
-    utterance.onerror = done;
-    window.speechSynthesis.speak(utterance);
+    try {
+      const resp = await fetch(API_CONFIG.TTS_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: cleaned })
+      });
+
+      if (!resp.ok) throw new Error(`TTS ${resp.status}`);
+
+      const { audio } = await resp.json();
+      const binary = atob(audio);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      const blob = new Blob([bytes], { type: 'audio/mpeg' });
+      const url = URL.createObjectURL(blob);
+
+      const audioEl = new Audio(url);
+      _currentTtsAudio = audioEl;
+      audioEl.onended = () => { URL.revokeObjectURL(url); done(); };
+      audioEl.onerror = () => { URL.revokeObjectURL(url); speakKoreanFallback(cleaned, resolve); };
+      audioEl.play();
+
+    } catch (e) {
+      console.warn('ElevenLabs TTS failed, using fallback:', e.message);
+      speakKoreanFallback(cleaned, resolve);
+    }
   });
 }
 
