@@ -14,6 +14,9 @@ export default async function handler(req, res) {
   formData.append('model_id', 'scribe_v1');
   formData.append('language_code', 'ko');
 
+  console.log('ElevenLabs API key exists:', !!process.env.ELEVENLABS_API_KEY);
+  console.log('API key prefix:', process.env.ELEVENLABS_API_KEY?.substring(0, 8));
+
   const response = await fetch('https://api.elevenlabs.io/v1/speech-to-text', {
     method: 'POST',
     headers: { 'xi-api-key': process.env.ELEVENLABS_API_KEY },
@@ -21,13 +24,13 @@ export default async function handler(req, res) {
   });
 
   console.log('ElevenLabs STT status:', response.status);
+  const responseText = await response.text();
+  console.log('ElevenLabs STT response:', responseText);
 
   if (!response.ok) {
-    const errorText = await response.text();
-    console.error('ElevenLabs STT error:', errorText);
-    return res.status(response.status).json({ error: errorText });
+    return res.status(response.status).json({ error: responseText });
   }
 
-  const data = await response.json();
+  const data = JSON.parse(responseText);
   res.json({ text: data.text || '' });
 }
