@@ -657,6 +657,24 @@ function applyApiKey() {
 
 let _pendingPhotoUnitId = null;
 
+function toggleLevel(levelKey) {
+  const el = document.getElementById('level-' + levelKey);
+  if (!el) return;
+  const arrow = el.previousElementSibling.querySelector('.level-arrow');
+  const isOpen = el.style.display !== 'none';
+
+  document.querySelectorAll('.level-units').forEach(u => {
+    u.style.display = 'none';
+    const a = u.previousElementSibling.querySelector('.level-arrow');
+    if (a) a.textContent = '▶';
+  });
+
+  if (!isOpen) {
+    el.style.display = 'block';
+    if (arrow) arrow.textContent = '▼';
+  }
+}
+
 async function buildUnitSelectorList() {
   const list = elements.unitSelectorList;
   if (!list) return;
@@ -678,14 +696,42 @@ async function buildUnitSelectorList() {
     groups[key].push(row);
   });
 
-  Object.keys(groups).sort().forEach(levelKey => {
-    const groupEl = document.createElement('div');
-    groupEl.className = 'unit-selector-group';
+  const activeLevel = STATE.activeUnit?.level || null;
 
-    const groupTitle = document.createElement('div');
-    groupTitle.className = 'unit-selector-group-title';
-    groupTitle.textContent = `SNU ${levelKey}`;
-    groupEl.appendChild(groupTitle);
+  Object.keys(groups).sort().forEach(levelKey => {
+    const isActiveLevel = levelKey === activeLevel;
+
+    const groupEl = document.createElement('div');
+    groupEl.className = 'level-group';
+
+    const header = document.createElement('div');
+    header.className = 'level-header' + (isActiveLevel ? ' level-header--active' : '');
+    header.addEventListener('click', () => toggleLevel(levelKey));
+
+    const badge = document.createElement('span');
+    badge.className = 'level-badge' + (isActiveLevel ? ' level-badge--active' : '');
+    badge.textContent = levelKey;
+
+    const label = document.createElement('span');
+    label.className = 'level-label';
+    const themes = [...new Set(
+      groups[levelKey].map(r => r.grand_themes?.label_ko).filter(Boolean)
+    )];
+    label.textContent = themes.length ? themes.join(' → ') : `SNU ${levelKey}`;
+
+    const arrow = document.createElement('span');
+    arrow.className = 'level-arrow';
+    arrow.textContent = isActiveLevel ? '▼' : '▶';
+
+    header.appendChild(badge);
+    header.appendChild(label);
+    header.appendChild(arrow);
+    groupEl.appendChild(header);
+
+    const unitsContainer = document.createElement('div');
+    unitsContainer.className = 'level-units';
+    unitsContainer.id = 'level-' + levelKey;
+    unitsContainer.style.display = isActiveLevel ? 'block' : 'none';
 
     groups[levelKey].forEach(row => {
       const unit = normalizeSNUUnit(row);
@@ -729,9 +775,10 @@ async function buildUnitSelectorList() {
 
       itemRow.appendChild(infoEl);
       itemRow.appendChild(photoBtn);
-      groupEl.appendChild(itemRow);
+      unitsContainer.appendChild(itemRow);
     });
 
+    groupEl.appendChild(unitsContainer);
     list.appendChild(groupEl);
   });
 }
@@ -748,7 +795,7 @@ function closeUnitSelector() {
 function selectUnit(unitId, unitObj) {
   STATE.unitId = unitId;
   STATE.activeUnit = unitObj || null;
-  closeUnitSelector();
+  setTimeout(closeUnitSelector, 300);
 
   conversationManager.clear();
   elements.conversation.innerHTML = '';
