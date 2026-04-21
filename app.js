@@ -23,7 +23,8 @@ const STATE = {
   gmsSentences: [],
   isSpeaking: false,
   messageCount: 0,
-  sessionCorrections: []
+  sessionCorrections: [],
+  pageContext: null
 };
 
 const STORAGE_KEYS = {
@@ -53,6 +54,8 @@ const elements = {
   micStatus: document.querySelector('.mic-status'),
   userTextInput: document.getElementById('userTextInput'),
   inputBarSendBtn: document.getElementById('inputBarSendBtn'),
+  photoInputBtn: document.getElementById('photoInputBtn'),
+  photoFileInput: document.getElementById('photoFileInput'),
   navTabs: Array.from(document.querySelectorAll('.nav-tab')),
   fluencyBarFill: document.querySelector('.fluency-bar__fill'),
   fluencyBadge: document.querySelector('.fluency-badge'),
@@ -544,7 +547,7 @@ async function processUserInput(text) {
 
   const unitContext = getUnit(STATE.unitId);
   const context = getSessionContext(STATE.unitId, parseInt(unitContext?.snu_level?.[3] || '3', 10) || 3);
-  const systemPrompt = generateSystemPrompt(context, STATE.mode, STATE.gmsSentences);
+  const systemPrompt = generateSystemPrompt(context, STATE.mode, STATE.gmsSentences, STATE.pageContext);
 
   STATE.isProcessing = true;
   setMicState('processing');
@@ -777,6 +780,60 @@ function resetSession() {
 
 //#endregion
 
+//#region Photo analysis
+function addSystemMessage(text) {
+  const el = document.createElement('div');
+  el.className = 'message message--system';
+  el.textContent = text;
+  elements.conversation.appendChild(el);
+  elements.conversation.scrollTop = elements.conversation.scrollHeight;
+  return el;
+}
+
+function initPhotoInput() {
+  elements.photoInputBtn.addEventListener('click', () => {
+    elements.photoFileInput.click();
+  });
+
+  elements.photoFileInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    elements.photoFileInput.value = '';
+
+    const indicator = addSystemMessage('📸 Analyse en cours...');
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = reader.result.split(',')[1];
+      const unit = getUnit(STATE.unitId);
+      const snuUnit = unit?.snu_level || 'SNU 5A';
+      const endpoint = (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost')
+        ? 'http://localhost:3000/api/analyze-image'
+        : '/api/analyze-image';
+
+      try {
+        const resp = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageBase64: base64, snuUnit })
+        });
+
+        if (!resp.ok) throw new Error('analyze-image failed');
+        const ctx = await resp.json();
+        STATE.pageContext = ctx;
+        indicator.textContent = '✅ Page analysée ! Vocabulaire et structures chargés.';
+        indicator.classList.add('message--system-ok');
+      } catch (err) {
+        console.error('Photo analysis error:', err);
+        indicator.textContent = '❌ Analyse échouée. Réessayez.';
+      }
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+//#endregion
+
 //#region Input bar
 function initInputBar() {
   const input = elements.userTextInput;
@@ -843,6 +900,7 @@ function initApp() {
 
   initSpeechRecognition();
   initInputBar();
+  initPhotoInput();
 
   const initUnit = getUnit(STATE.unitId);
   if (initUnit?.snu_level && window.getGMSSentences) {

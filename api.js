@@ -97,7 +97,7 @@ async function requestApiKeyFromUser() {
  * @param {string} mode - Practice mode (freeChat, debate, speaking, speedDrill)
  * @returns {string} System prompt for Claude
  */
-function generateSystemPrompt(context, mode, gmsSentences) {
+function generateSystemPrompt(context, mode, gmsSentences, pageContext) {
   const { unit, vocabulary } = context;
 
   const unitTitle = unit ? `${unit.title} — ${unit.subtitle}` : '자유 주제';
@@ -109,6 +109,21 @@ function generateSystemPrompt(context, mode, gmsSentences) {
 
   const vocabLines = vocabulary && vocabulary.length > 0
     ? vocabulary.slice(0, 8).map(v => `  • ${v.korean} (${v.meaning})`).join('\n')
+    : '';
+
+  const pageContextBlock = pageContext
+    ? `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CONTENU DE LA PAGE DU JOUR (priorité maximale)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Thème : ${pageContext.theme}
+Niveau : ${pageContext.level}
+Vocabulaire : ${(pageContext.vocabulary || []).join(', ')}
+Structures : ${(pageContext.structures || []).join(', ')}
+Questions suggérées :
+${(pageContext.conversation_starters || []).map(q => `  • ${q}`).join('\n')}
+
+Utilise ce contenu comme base principale de la conversation.`
     : '';
 
   const correctionBlock = `
@@ -161,6 +176,7 @@ CORRECTION (mode débat — stricte)
 
 PHRASES GMS DISPONIBLES :
 ${gmsLines}
+${pageContextBlock}
 ${correctionBlock}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -203,6 +219,7 @@ CORRECTION (mode 자유 대화 — douce)
 PHRASES GMS DISPONIBLES :
 ${gmsLines}
 ${vocabLines ? `\nVOCABULAIRE DE L'UNITÉ :\n${vocabLines}` : ''}
+${pageContextBlock}
 ${correctionBlock}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
