@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
   <title>KoCo - Korean Conversation Companion</title>
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -15,6 +15,7 @@
         <span id="headerUnitSub" class="header__unit-sub">Food & Nutrition · 자유 대화</span>
         <span class="header__unit-chevron">▾</span>
       </button>
+      <button class="tts-toggle" id="ttsToggleBtn" type="button" title="TTS on/off">🔊</button>
       <button id="endSessionBtn" class="header__end-session" title="Terminer la séance" type="button">⏹</button>
     </header>
 
@@ -123,22 +124,32 @@
       <button class="next-question-btn" type="button" style="display:none;">다음 질문</button>
     </main>
 
-    <div class="input-container">
-      <div class="input-bar">
-        <button class="input-bar__mic mic-button" id="inputBarMicBtn" type="button" title="길게 누르세요">🎤</button>
-        <div class="input-bar__pill">
-          <button id="photoInputBtn" class="input-bar__photo" type="button" title="Page du jour">📸</button>
-          <input type="file" id="photoFileInput" accept="image/*" capture="environment" style="display:none" />
-          <input
-            type="text"
-            class="input-bar__field"
+    <div class="wa-input-bar">
+      <div class="wa-input-row">
+        <button class="wa-btn wa-attach" id="photoInputBtn" type="button" aria-label="파일 첨부">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"
+              stroke="#8696A0" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <input type="file" id="photoFileInput" accept="image/*" style="display:none" />
+        <div class="wa-input-wrapper">
+          <textarea
             id="userTextInput"
+            class="wa-textarea"
             placeholder="한국어로 입력하세요..."
+            rows="1"
             autocomplete="off"
             enterkeyhint="send"
-          />
-          <button class="input-bar__send hidden" id="inputBarSendBtn" type="button">➤</button>
+          ></textarea>
         </div>
+        <button class="wa-btn wa-mic" id="inputBarMicBtn" type="button" aria-label="음성 입력">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" fill="#ffffff"/>
+            <path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"
+              stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
       </div>
     </div>
 
