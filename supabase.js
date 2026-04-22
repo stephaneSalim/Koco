@@ -186,6 +186,52 @@ async function getLessonContent(unitId) {
 window.saveLessonContent = saveLessonContent;
 window.getLessonContent = getLessonContent;
 
+async function saveReviewItems(userId, unitId, drills) {
+  if (!drills || drills.length === 0) return;
+
+  const now = new Date().toISOString();
+  const items = drills.map(drill => ({
+    user_id: userId,
+    unit_id: unitId,
+    original: drill.source_original,
+    fixed: drill.source_fixed,
+    note: drill.source_note,
+    drill_recognition: JSON.stringify(drill.recognition),
+    drill_recall: JSON.stringify(drill.recall),
+    drill_production: JSON.stringify(drill.production),
+    drills_generated_at: now,
+    next_review_at: now,
+    interval_days: 1
+  }));
+
+  const { error } = await window.supabaseClient
+    .from('review_items')
+    .insert(items);
+
+  if (error) {
+    console.error('saveReviewItems error:', JSON.stringify(error));
+  } else {
+    console.log('Review items saved:', items.length);
+  }
+}
+window.saveReviewItems = saveReviewItems;
+
+async function getDueReviewItems(userId) {
+  const { data, error } = await window.supabaseClient
+    .from('review_items')
+    .select('*')
+    .eq('user_id', userId)
+    .lte('next_review_at', new Date().toISOString())
+    .order('next_review_at')
+    .limit(10);
+
+  if (error) {
+    console.error('getDueReviewItems error:', JSON.stringify(error));
+  }
+  return data || [];
+}
+window.getDueReviewItems = getDueReviewItems;
+
 async function getAllSNUUnits() {
   const { data, error } = await window.supabaseClient
     .from('snu_units')

@@ -860,6 +860,54 @@ function selectUnit(unitId, unitObj) {
 
 //#endregion
 
+//#region Distillateur
+
+async function runDistiller(corrections, unitId, userId) {
+  if (!corrections || corrections.length === 0) return;
+
+  console.log('Distillateur lancé pour', corrections.length, 'corrections');
+
+  try {
+    const endpoint = isLocal ? 'http://localhost:3000/api/distill' : '/api/distill';
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ corrections, unitId, userId })
+    });
+
+    if (!response.ok) throw new Error(`distill ${response.status}`);
+
+    const { drills } = await response.json();
+
+    if (drills && drills.length > 0 && window.saveReviewItems) {
+      await window.saveReviewItems(userId, unitId, drills);
+      console.log('Distillateur terminé:', drills.length, 'drills générés');
+      showDistillerNotification(drills.length);
+    }
+  } catch (e) {
+    console.error('Distillateur error:', e);
+  }
+}
+
+function showDistillerNotification(count) {
+  const notif = document.createElement('div');
+  notif.style.cssText = `
+    background: #e8f5e9;
+    border-left: 4px solid #00a884;
+    padding: 12px 16px;
+    margin: 12px 0;
+    border-radius: 8px;
+    font-size: 14px;
+    color: #1a1a1a;
+  `;
+  notif.textContent = `🧠 ${count} drill${count > 1 ? 's' : ''} généré${count > 1 ? 's' : ''} depuis tes erreurs → disponibles dans Drill du jour`;
+
+  const gmsEl = document.getElementById('summaryGMS');
+  if (gmsEl) gmsEl.after(notif);
+}
+
+//#endregion
+
 //#region Session summary
 function openSessionSummary() {
   const durationMin = Math.round((Date.now() - STATE.session.sessionStart) / 60000);
@@ -901,6 +949,11 @@ function openSessionSummary() {
 
   if (window.saveSession) {
     saveSession(STATE.unitId, STATE.mode, durationMin, corrections);
+  }
+
+  const majorCorrections = corrections.filter(c => c.status !== 'correct');
+  if (majorCorrections.length > 0) {
+    runDistiller(majorCorrections, STATE.unitId, window.kocoUserId);
   }
 
   elements.sessionSummaryModal.classList.remove('hidden');
