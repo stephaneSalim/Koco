@@ -9,6 +9,9 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'imageBase64 required' });
   }
 
+  console.log('Image size (base64 length):', imageBase64?.length);
+  console.log('Image type:', 'image/jpeg');
+
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -50,6 +53,9 @@ Réponds UNIQUEMENT avec le JSON, rien d'autre.`
   });
 
   const data = await response.json();
+
+  console.log('Claude Vision status:', response.status);
+  console.log('Claude Vision error:', JSON.stringify(data.error));
 
   try {
     const text = data.content[0].text.trim();
