@@ -76,9 +76,7 @@ const elements = {
   transcription: document.querySelector('.transcription'),
   transcriptionIndicator: document.querySelector('.transcription__indicator'),
   micButton: document.getElementById('inputBarMicBtn'),
-  micStatus: document.querySelector('.mic-status'),
   userTextInput: document.getElementById('userTextInput'),
-  inputBarSendBtn: document.getElementById('inputBarSendBtn'),
   photoInputBtn: document.getElementById('photoInputBtn'),
   photoFileInput: document.getElementById('photoFileInput'),
   navTabs: Array.from(document.querySelectorAll('.nav-tab')),
@@ -98,25 +96,19 @@ const elements = {
   transcriptionPanel: document.querySelector('.transcription-panel'),
   fluencyBar: document.querySelector('.fluency-bar'),
   fluencyBadge: document.querySelector('.fluency-badge'),
-  micContainer: document.querySelector('.input-container')
+  micContainer: document.querySelector('.wa-input-bar')
 };
 
 let ttsPulseInterval = null;
 let ttsEnabled = localStorage.getItem('koco_tts_enabled') !== 'false';
 
 function createTtsToggleButton() {
-  const header = document.querySelector('header.header');
-  if (!header) return null;
-
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.className = 'tts-toggle';
-  button.title = 'Immersive TTS';
-  button.style.cssText = 'margin-left:auto; padding:0.7rem 1rem; border:none; background:rgba(255,255,255,0.85); border-radius:999px; cursor:pointer; font-size:1rem;';
-  button.textContent = ttsEnabled ? '🔊' : '🔇';
-  button.addEventListener('click', toggleTts);
-  header.appendChild(button);
-  return button;
+  const existing = document.getElementById('ttsToggleBtn');
+  if (existing) {
+    existing.addEventListener('click', toggleTts);
+    return existing;
+  }
+  return null;
 }
 
 function updateTtsButton() {
@@ -170,13 +162,11 @@ function cleanForTTS(text) {
 function speakKorean(text) {
   return new Promise(async (resolve) => {
     STATE.isSpeaking = true;
-    elements.micButton.disabled = true;
     startTtsPulse();
 
     const cleaned = cleanForTTS(text);
     if (!cleaned) {
       STATE.isSpeaking = false;
-      elements.micButton.disabled = false;
       stopTtsPulse();
       resolve();
       return;
@@ -184,7 +174,6 @@ function speakKorean(text) {
 
     const done = () => {
       STATE.isSpeaking = false;
-      elements.micButton.disabled = false;
       stopTtsPulse();
       setMicState('idle');
       _currentTtsAudio = null;
@@ -345,16 +334,17 @@ function showTypingIndicator(show) {
 }
 
 function setMicState(state) {
-  elements.micButton.classList.remove('mic-button--listening', 'mic-button--processing', 'active');
-  elements.micButton.disabled = false;
+  const btn = elements.micButton;
+  btn.disabled = false;
+  btn.classList.remove('recording');
   if (state === 'listening') {
-    elements.micButton.classList.add('mic-button--listening', 'active');
-    elements.micStatus.textContent = '듣는 중...';
+    btn.classList.add('recording');
+    if (elements.transcription) elements.transcription.textContent = '녹음 중...';
   } else if (state === 'processing') {
-    elements.micButton.classList.add('mic-button--processing');
-    elements.micStatus.textContent = '처리 중...';
+    btn.disabled = true;
+    if (elements.transcription) elements.transcription.textContent = '변환 중...';
   } else {
-    elements.micStatus.textContent = '마이크 시작';
+    if (elements.transcription) elements.transcription.textContent = '';
   }
 }
 
@@ -579,17 +569,20 @@ function initPushToTalk() {
   micBtn.addEventListener('pointerdown', async (e) => {
     e.preventDefault();
     if (STATE.isSpeaking) return;
+    if (elements.userTextInput?.value.trim()) return; // send mode — handle on pointerup
     await startRecording();
   });
 
   micBtn.addEventListener('pointerup', async (e) => {
     e.preventDefault();
+    const inputText = elements.userTextInput?.value.trim();
+    if (inputText) {
+      submitTextInput();
+      return;
+    }
     if (!_isRecording) return;
     const text = await stopRecording();
-    if (text && text.trim()) {
-      if (elements.userTextInput) elements.userTextInput.value = '';
-      processUserInput(text.trim());
-    }
+    if (text && text.trim()) processUserInput(text.trim());
   });
 
   micBtn.addEventListener('pointerleave', async () => {
@@ -1020,30 +1013,55 @@ function initPhotoInput() {
 //#endregion
 
 //#region Input bar
-function initInputBar() {
-  const input = elements.userTextInput;
-  const sendBtn = elements.inputBarSendBtn;
+
+const SEND_SVG = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+  <path d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z"
+    stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>`;
+const MIC_SVG = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+  <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" fill="#ffffff"/>
+  <path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"
+    stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
+</svg>`;
+
+function syncMicSendState() {
   const micBtn = elements.micButton;
-
-  function syncButtons() {
-    const hasText = input.value.trim().length > 0;
-    sendBtn.classList.toggle('hidden', !hasText);
-    micBtn.classList.toggle('input-bar__mic--hidden', hasText);
+  const hasText = elements.userTextInput.value.trim().length > 0;
+  if (hasText) {
+    micBtn.className = 'wa-btn wa-send';
+    micBtn.innerHTML = SEND_SVG;
+  } else {
+    micBtn.className = 'wa-btn wa-mic';
+    micBtn.innerHTML = MIC_SVG;
   }
+}
 
-  function submitText() {
-    const text = input.value.trim();
-    if (!text) return;
-    input.value = '';
-    syncButtons();
-    processUserInput(text);
-  }
+function submitTextInput() {
+  const textarea = elements.userTextInput;
+  const text = textarea.value.trim();
+  if (!text) return;
+  textarea.value = '';
+  textarea.style.height = 'auto';
+  syncMicSendState();
+  processUserInput(text);
+}
 
-  input.addEventListener('input', syncButtons);
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); submitText(); }
+function initInputBar() {
+  const textarea = elements.userTextInput;
+  if (!textarea) return;
+
+  textarea.addEventListener('input', () => {
+    textarea.style.height = 'auto';
+    textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+    syncMicSendState();
   });
-  sendBtn.addEventListener('click', submitText);
+
+  textarea.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      submitTextInput();
+    }
+  });
 }
 
 //#endregion
@@ -1079,7 +1097,12 @@ function initApp() {
     hideApiModal();
   });
 
-  elements.ttsToggleButton = elements.ttsToggleButton || document.querySelector('.tts-toggle') || createTtsToggleButton();
+  if (!elements.ttsToggleButton) {
+    elements.ttsToggleButton = document.getElementById('ttsToggleBtn') || document.querySelector('.tts-toggle');
+  }
+  if (elements.ttsToggleButton) {
+    elements.ttsToggleButton.addEventListener('click', toggleTts);
+  }
   updateTtsButton();
 
   initPushToTalk();
