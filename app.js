@@ -98,7 +98,7 @@ const elements = {
   transcriptionPanel: document.querySelector('.transcription-panel'),
   fluencyBar: document.querySelector('.fluency-bar'),
   fluencyBadge: document.querySelector('.fluency-badge'),
-  micContainer: document.querySelector('.input-bar')
+  micContainer: document.querySelector('.input-container')
 };
 
 let ttsPulseInterval = null;

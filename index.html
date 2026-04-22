@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>KoCo - Korean Conversation Companion</title>
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -120,24 +120,27 @@
 
       <div class="alert-area"></div>
 
-      <div class="input-bar">
-        <button class="input-bar__mic mic-button" id="inputBarMicBtn" type="button">🎤</button>
-        <button id="photoInputBtn" class="input-bar__photo" type="button" title="Page du jour">📸</button>
-        <input type="file" id="photoFileInput" accept="image/*" capture="environment" style="display:none" />
-        <input
-          type="text"
-          class="input-bar__field"
-          id="userTextInput"
-          placeholder="한국어로 입력하세요..."
-          autocomplete="off"
-          enterkeyhint="send"
-        />
-        <button class="input-bar__send hidden" id="inputBarSendBtn" type="button">➤</button>
-      </div>
-      <div class="mic-status">마이크 시작</div>
-
       <button class="next-question-btn" type="button" style="display:none;">다음 질문</button>
     </main>
+
+    <div class="input-container">
+      <div class="input-bar">
+        <button class="input-bar__mic mic-button" id="inputBarMicBtn" type="button" title="길게 누르세요">🎤</button>
+        <div class="input-bar__pill">
+          <button id="photoInputBtn" class="input-bar__photo" type="button" title="Page du jour">📸</button>
+          <input type="file" id="photoFileInput" accept="image/*" capture="environment" style="display:none" />
+          <input
+            type="text"
+            class="input-bar__field"
+            id="userTextInput"
+            placeholder="한국어로 입력하세요..."
+            autocomplete="off"
+            enterkeyhint="send"
+          />
+          <button class="input-bar__send hidden" id="inputBarSendBtn" type="button">➤</button>
+        </div>
+      </div>
+    </div>
 
     <nav class="nav-tabs">
       <button class="nav-tab active" data-mode="freeChat" type="button">
