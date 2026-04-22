@@ -663,6 +663,8 @@ async function processUserInput(text) {
         if (window.saveMissionMetrics) {
           window.saveMissionMetrics(missionScore, STATE.unitId, MissionMgr.getContext());
         }
+        const drillSession = parseDrillSession(result.response);
+        if (drillSession) showMissionDrills(drillSession);
         MissionMgr.deactivate();
       }
     }
@@ -945,19 +947,38 @@ class MissionManager {
   calibrateFromVision(pageContent) {
     if (!this.active) return null;
 
+    const baseConfig = window.resolveMissionConfig ? window.resolveMissionConfig(STATE.unitId) : {};
+
+    const mergedGrammar = [
+      ...new Set([
+        ...(baseConfig.target_grammar || []),
+        ...(pageContent.structures || [])
+      ])
+    ].slice(0, 6);
+
+    const mergedVocab = [
+      ...(baseConfig.vocabulary || []),
+      ...(pageContent.vocabulary || [])
+    ].slice(0, 15);
+
     this.override = {
-      difficulty_level: STATE.activeUnit?.level || '5A',
-      severity: 'academic',
-      target_grammar: pageContent.structures || [],
-      forbidden_patterns: ['그리고', '그래서', '그냥', '좀', '그래가지고'],
-      min_clauses: 2,
-      tolerance: 'zero',
-      topic: pageContent.theme || '',
-      mission_brief: `${pageContent.theme}의 핵심 구조를 활용하여 논리적으로 말하세요.`,
-      vocabulary: pageContent.vocabulary || []
+      ...baseConfig,
+      target_grammar: mergedGrammar,
+      vocabulary: mergedVocab,
+      topic: pageContent.theme || baseConfig.topic,
+      mission_brief: pageContent.theme
+        ? `${pageContent.theme}의 핵심 구조를 활용하여 ${baseConfig.mission_brief || '논리적으로 말하세요.'}`
+        : (baseConfig.mission_brief || '논리적으로 말하세요.'),
+      vision_merged: true,
+      vision_additions: pageContent.structures || []
     };
 
-    console.log('Mission calibrated from vision:', this.override);
+    console.log('Mission MERGED from vision:', {
+      base: baseConfig.target_grammar,
+      added: pageContent.structures,
+      merged: mergedGrammar
+    });
+
     return this.override;
   }
 
@@ -1024,23 +1045,196 @@ function showMissionScore(score) {
   elements.conversation.scrollTop = elements.conversation.scrollHeight;
 }
 
+function parseDrillSession(text) {
+  const match = text.match(/\[DRILL_SESSION\]([\s\S]*?)\[\/DRILL_SESSION\]/);
+  if (!match) return null;
+
+  const block = match[1];
+  const level = (block.match(/LEVEL:\s*(.+)/) || [])[1]?.trim();
+
+  const drills = [];
+  for (let i = 1; i <= 3; i++) {
+    const extract = (field) => {
+      const m = block.match(new RegExp(`DRILL_${i}_${field}:\\s*(.+)`));
+      return m ? m[1].trim() : '';
+    };
+    const type = extract('TYPE');
+    const prompt = extract('PROMPT');
+    if (!type || !prompt) continue;
+    drills.push({
+      type,
+      prompt,
+      target: extract('TARGET'),
+      answer: extract('ANSWER'),
+      level
+    });
+  }
+
+  return drills.length ? { level, drills } : null;
+}
+
+function showMissionDrills(drillSession) {
+  if (!drillSession?.drills?.length) return;
+
+  const container = document.createElement('div');
+  container.style.cssText = `
+    background: #f8f9fa;
+    border-radius: 16px;
+    padding: 20px;
+    margin: 12px 0;
+    border-top: 4px solid #667eea;
+  `;
+
+  const typeLabel = (t) =>
+    t === 'reformulation' ? '🔄 재구성' :
+    t === 'completion'    ? '✏️ 완성'   : '✍️ 생성';
+  const typeColor = (t) =>
+    t === 'reformulation' ? '#ff6b35' :
+    t === 'completion'    ? '#667eea' : '#00a884';
+  const typePlaceholder = (t) =>
+    t === 'completion'    ? '빈칸을 채우세요...' :
+    t === 'reformulation' ? '재구성하세요...'     : '문장을 만드세요...';
+
+  container.innerHTML = `
+    <div style="font-size:16px;font-weight:700;color:#667eea;margin-bottom:16px">
+      📝 드릴 세션 [${drillSession.level}]
+      <span style="font-size:12px;font-weight:400;color:#8696A0;margin-left:8px">미션 오류 기반 즉석 연습</span>
+    </div>
+    ${drillSession.drills.map((drill, i) => `
+      <div id="missionDrillItem_${i}" style="
+        background:white;border-radius:12px;padding:16px;margin-bottom:12px;
+        border-left:3px solid ${typeColor(drill.type)};
+      ">
+        <div style="font-size:11px;font-weight:700;color:#8696A0;text-transform:uppercase;margin-bottom:8px">
+          ${i + 1}. ${typeLabel(drill.type)}
+          <span style="background:#f0f0f0;border-radius:8px;padding:2px 8px;font-size:10px;margin-left:6px">${drill.target}</span>
+        </div>
+        <div style="font-size:15px;color:#1a1a1a;margin-bottom:12px;line-height:1.5">${drill.prompt}</div>
+        <textarea
+          id="missionDrillInput_${i}"
+          data-correct="${drill.answer.replace(/"/g, '&quot;')}"
+          placeholder="${typePlaceholder(drill.type)}"
+          style="width:100%;border:2px solid #e5e5e5;border-radius:8px;padding:10px;font-size:14px;font-family:inherit;resize:none;outline:none;box-sizing:border-box"
+          rows="2"
+        ></textarea>
+        <button
+          onclick="checkMissionDrill(${i})"
+          id="missionDrillCheckBtn_${i}"
+          style="margin-top:8px;background:#667eea;color:white;border:none;border-radius:20px;padding:8px 20px;font-size:13px;font-weight:600;cursor:pointer;width:100%">
+          확인 →
+        </button>
+        <div id="missionDrillResult_${i}" style="display:none;margin-top:8px"></div>
+      </div>
+    `).join('')}
+  `;
+
+  elements.conversation.appendChild(container);
+  elements.conversation.scrollTop = elements.conversation.scrollHeight;
+
+  saveMissionDrillsToSRS(drillSession);
+}
+
+function checkMissionDrill(index) {
+  const textarea = document.getElementById(`missionDrillInput_${index}`);
+  const btn = document.getElementById(`missionDrillCheckBtn_${index}`);
+  const resultDiv = document.getElementById(`missionDrillResult_${index}`);
+  if (!textarea || !resultDiv) return;
+
+  const userAnswer = textarea.value.trim();
+  if (!userAnswer) return;
+
+  const correct = textarea.dataset.correct;
+  textarea.disabled = true;
+  if (btn) btn.style.display = 'none';
+  resultDiv.style.display = 'block';
+  resultDiv.innerHTML = `
+    <div style="padding:10px;border-radius:8px;background:#f8f9fa;font-size:13px;margin-bottom:8px">
+      <div style="color:#8696A0;margin-bottom:4px">모범 답안:</div>
+      <div style="color:#00a884;font-weight:500">${correct}</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="rateMissionDrill(this, true, ${index})"
+        style="flex:1;background:#e8f5e9;color:#00a884;border:none;border-radius:8px;padding:8px;font-size:13px;font-weight:600;cursor:pointer">
+        ✅ 알았어요
+      </button>
+      <button onclick="rateMissionDrill(this, false, ${index})"
+        style="flex:1;background:#fce4ec;color:#e53935;border:none;border-radius:8px;padding:8px;font-size:13px;font-weight:600;cursor:pointer">
+        ❌ 몰랐어요
+      </button>
+    </div>
+  `;
+}
+
+function rateMissionDrill(btn, success) {
+  btn.parentElement.innerHTML = success
+    ? '<div style="color:#00a884;font-size:13px;padding:6px 0">✅ SRS 업데이트됨</div>'
+    : '<div style="color:#e53935;font-size:13px;padding:6px 0">❌ 내일 다시 복습</div>';
+}
+
+async function saveMissionDrillsToSRS(drillSession) {
+  if (!drillSession?.drills?.length || !window.supabaseClient) return;
+
+  const now = new Date().toISOString();
+  const items = drillSession.drills.map(drill => ({
+    user_id: window.kocoUserId,
+    unit_id: STATE.unitId,
+    original: drill.prompt,
+    fixed: drill.answer,
+    note: drill.target,
+    drill_recognition: JSON.stringify({
+      instruction: '재구성하세요:',
+      prompt: drill.prompt,
+      answer: drill.answer
+    }),
+    drill_recall: JSON.stringify({
+      instruction: drill.type === 'completion' ? '완성하세요:' : '번역하세요:',
+      prompt: drill.prompt,
+      answer: drill.answer
+    }),
+    drill_production: JSON.stringify({
+      instruction: '문장을 만드세요:',
+      prompt: `${drill.target}을/를 사용하세요.`,
+      target_structure: drill.target
+    }),
+    drills_generated_at: now,
+    next_review_at: now,
+    interval_days: 1
+  }));
+
+  const { error } = await window.supabaseClient.from('review_items').insert(items);
+  if (error) {
+    console.error('saveMissionDrillsToSRS error:', JSON.stringify(error));
+  } else {
+    console.log('Mission drills saved to SRS:', items.length);
+  }
+}
+
+function showVisionMergeNotice(override) {
+  const notif = document.createElement('div');
+  notif.style.cssText = `
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    color: white;
+    padding: 14px 16px;
+    border-radius: 10px;
+    margin: 8px 12px;
+    font-size: 13px;
+    border-left: 4px solid #00a884;
+  `;
+  notif.innerHTML = `
+    ⚡ <strong>Mission recalibrée — Fusion Vision + Unité</strong><br>
+    <small style="opacity:0.8">
+      Ajouts Vision : ${(override.vision_additions || []).join(', ') || '—'}<br>
+      Total structures : ${(override.target_grammar || []).length}
+    </small>
+  `;
+  elements.conversation.appendChild(notif);
+  elements.conversation.scrollTop = elements.conversation.scrollHeight;
+}
+
 async function bootstrapMissionFromImage(pageContent) {
   const override = MissionMgr.calibrateFromVision(pageContent);
   if (!override) return;
-
-  const notif = document.createElement('div');
-  notif.style.cssText = `
-    background: linear-gradient(135deg, #ff6b35, #f7931e);
-    color: white;
-    padding: 12px 16px;
-    border-radius: 10px;
-    margin: 8px 0;
-    font-size: 14px;
-  `;
-  notif.innerHTML = `⚡ <strong>Mission recalibrée</strong> depuis la page analysée<br>
-    <small>Structures cibles : ${(pageContent.structures || []).slice(0, 3).join(' / ')}</small>`;
-  elements.conversation.appendChild(notif);
-  elements.conversation.scrollTop = elements.conversation.scrollHeight;
+  showVisionMergeNotice(override);
 }
 
 function showMissionBriefing(cfg) {

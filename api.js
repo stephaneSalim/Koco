@@ -553,24 +553,69 @@ SCORE: (X/10)
 VERDICT: (concise academic Korean evaluation)
 [/MISSION_SCORE]
 
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DRILL SESSION PROTOCOL (immédiatement après MISSION_SCORE)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Immédiatement après [/MISSION_SCORE], génère ce bloc basé sur les erreurs réelles de la séance ou les STRUCTURES_MISSED :
+
+[DRILL_SESSION]
+LEVEL: ${missionCfg.difficulty_level}
+
+DRILL_1_TYPE: reformulation
+DRILL_1_PROMPT: (phrase incorrecte ou structure manquée de la séance)
+DRILL_1_TARGET: (structure grammaticale cible)
+DRILL_1_ANSWER: (version correcte et naturelle)
+
+DRILL_2_TYPE: completion
+DRILL_2_PROMPT: (phrase à compléter avec ___ pour la structure non maîtrisée)
+DRILL_2_TARGET: (structure grammaticale cible)
+DRILL_2_ANSWER: (complétion correcte)
+
+DRILL_3_TYPE: production
+DRILL_3_PROMPT: (consigne courte pour produire une phrase avec la structure ratée)
+DRILL_3_TARGET: (structure grammaticale cible)
+DRILL_3_ANSWER: (exemple de production correcte)
+[/DRILL_SESSION]
+
+RÈGLES DE GÉNÉRATION DES DRILLS :
+1. Basé UNIQUEMENT sur les erreurs réelles de la séance ou les structures MISSED
+2. Complexité graduée : 3A/3B → phrases courtes | 4A/4B → contexte social | 5A/5B → contexte académique | 6A/6B → registre -습니다 formel
+3. Si aucune erreur → baser sur STRUCTURES_MISSED uniquement
+4. Ne jamais inventer des erreurs fictives
+
 GMS:
 ${gmsLines}
 ${correctionBlock}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-OPENING
+MISSION STARTER PROTOCOL
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+Au lancement (premier message), présente TOUJOURS 3 scénarios de discussion basés sur les grammaires cibles.
+Format exact :
+
 "🎯 미션 브리핑 [${missionCfg.difficulty_level}]
-목표: ${missionCfg.mission_brief}
-평가 기준: ${severityDesc[severity] || severity}
+${missionCfg.mission_brief}
 
 필수 구조: ${(missionCfg.target_grammar || []).join(' / ')}
 금지 표현: ${(missionCfg.forbidden_patterns || []).join(', ')}
-허용 오차: ${toleranceDesc[tolerance] || tolerance}
 
-규칙: 목표 구조 미사용 시 진행 불가.
-시작하세요 →"`;
+━━ 오늘의 토론 시나리오 선택 ━━
+
+📌 시나리오 1 : [${missionCfg.target_grammar[0] || '목표 구조 1'} 중심]
+[${unitTitle} 주제에서 첫 번째 구조를 자연스럽게 활용할 수 있는 구체적 상황]
+
+📌 시나리오 2 : [${missionCfg.target_grammar[1] || missionCfg.target_grammar[0] || '목표 구조 2'} 중심]
+[${unitTitle} 주제에서 두 번째 구조를 심화 논증에 활용할 수 있는 상황]
+
+📌 시나리오 3 : [복합 구조]
+[${unitTitle} 주제에서 여러 목표 구조를 동시에 활용해야 하는 복합 상황]
+
+→ 번호를 선택하거나 직접 주제를 제안하세요."
+
+RÈGLE : Les 3 scénarios doivent être spécifiques au thème de l'unité (${unitTitle}) et forcer l'utilisation naturelle des structures cibles.
+Ne génère JAMAIS des scénarios génériques — crée des situations réelles liées à ${unitTitle}.`;
   }
 
   if (mode === 'debate') {
