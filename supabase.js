@@ -186,6 +186,33 @@ async function getLessonContent(unitId) {
 window.saveLessonContent = saveLessonContent;
 window.getLessonContent = getLessonContent;
 
+async function saveMissionMetrics(score, unitId, missionOverride) {
+  const { error } = await window.supabaseClient
+    .from('session_metrics')
+    .insert({
+      user_id: window.kocoUserId,
+      unit_id: unitId || '',
+      mission_score: score.score_numeric / 10,
+      complexity_index: score.complexity_index / 10,
+      target_grammar_used: score.structures_used,
+      forbidden_patterns_used: score.forbidden_detected,
+      mission_constraints: JSON.stringify(
+        missionOverride
+        || window.MISSIONS_CONFIG?.[unitId]
+        || window.MISSIONS_CONFIG?.['default']
+        || {}
+      ),
+      created_at: new Date().toISOString()
+    });
+
+  if (error) {
+    console.error('saveMissionMetrics error:', JSON.stringify(error));
+  } else {
+    console.log('Mission metrics saved | score:', score.score_numeric, '| complexity:', score.complexity_index);
+  }
+}
+window.saveMissionMetrics = saveMissionMetrics;
+
 async function saveReviewItems(userId, unitId, drills) {
   if (!drills || drills.length === 0) return;
 

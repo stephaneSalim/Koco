@@ -25,7 +25,8 @@ const STATE = {
   isSpeaking: false,
   messageCount: 0,
   sessionCorrections: [],
-  pageContext: null
+  pageContext: null,
+  missionOverride: null
 };
 
 // Normalize a Supabase snu_units row to a stable unit object used throughout the app
@@ -58,7 +59,8 @@ const STORAGE_KEYS = {
 
 const MODE_INFO = {
   freeChat: { icon: '💬', label: '자유 대화' },
-  debate: { icon: '⚖️', label: '토론' }
+  debate: { icon: '⚖️', label: '토론' },
+  mission: { icon: '🎯', label: '미션' }
 };
 
 let conversationManager;
@@ -611,6 +613,8 @@ async function processUserInput(text) {
   const dataUnitId = getDataUnitId(STATE.unitId);
   const context = getSessionContext(dataUnitId, parseInt(STATE.activeUnit?.level?.[1] || '3', 10) || 3);
   context.unit = STATE.activeUnit || context.unit;
+  context.unitId = STATE.unitId;
+  context.missionOverride = STATE.missionOverride || null;
   const systemPrompt = generateSystemPrompt(context, STATE.mode, STATE.gmsSentences, STATE.pageContext);
 
   STATE.isProcessing = true;
@@ -639,6 +643,17 @@ async function processUserInput(text) {
     if (correction && correction.status !== 'correct') {
       STATE.sessionCorrections.push(correction);
     }
+
+    if (STATE.mode === 'mission') {
+      const missionScore = parseMissionScore(result.response);
+      if (missionScore) {
+        showMissionScore(missionScore);
+        if (window.saveMissionMetrics) {
+          window.saveMissionMetrics(missionScore, STATE.unitId, STATE.missionOverride);
+        }
+      }
+    }
+
     if (ttsEnabled) {
       await speakKorean(conversationText);
     }
@@ -840,6 +855,7 @@ function selectUnit(unitId, unitObj) {
   conversationManager.clear();
   elements.conversation.innerHTML = '';
   STATE.pageContext = null;
+  STATE.missionOverride = null;
 
   if (window.getLessonContent) {
     window.getLessonContent(unitId).then(content => {
@@ -856,6 +872,84 @@ function selectUnit(unitId, unitObj) {
 
   updateHeader();
   nextQuestion();
+}
+
+//#endregion
+
+//#region Mission Engine
+
+function extractField(text, field) {
+  const match = text.match(new RegExp(field + ':\\s*(.+)'));
+  return match ? match[1].trim() : '';
+}
+
+function parseMissionScore(text) {
+  const match = text.match(/\[MISSION_SCORE\]([\s\S]*?)\[\/MISSION_SCORE\]/);
+  if (!match) return null;
+
+  const block = match[1];
+  return {
+    structures_used:    extractField(block, 'STRUCTURES_USED'),
+    structures_missed:  extractField(block, 'STRUCTURES_MISSED'),
+    forbidden_detected: extractField(block, 'FORBIDDEN_PATTERNS_DETECTED'),
+    complexity_index:   parseFloat(extractField(block, 'COMPLEXITY_INDEX')) || 0,
+    score:              extractField(block, 'SCORE'),
+    score_numeric:      parseFloat(extractField(block, 'SCORE')) || 0,
+    verdict:            extractField(block, 'VERDICT')
+  };
+}
+
+function showMissionScore(score) {
+  const el = document.createElement('div');
+  el.style.cssText = `
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    color: #e0e0e0;
+    border-radius: 14px;
+    padding: 16px 18px;
+    margin: 8px 0;
+    font-size: 14px;
+    line-height: 1.6;
+  `;
+  el.innerHTML = `
+    <div style="font-size:16px;font-weight:800;color:#f7931e;margin-bottom:10px">
+      🎯 미션 결과 — ${score.score} / 10
+    </div>
+    ${score.structures_used ? `<div>✅ <strong>사용 구조:</strong> ${score.structures_used}</div>` : ''}
+    ${score.structures_missed ? `<div>❌ <strong>미사용 구조:</strong> ${score.structures_missed}</div>` : ''}
+    ${score.forbidden_detected ? `<div>⚠️ <strong>금지 표현:</strong> ${score.forbidden_detected}</div>` : ''}
+    <div>📊 <strong>복잡도:</strong> ${score.complexity_index}/10</div>
+    ${score.verdict ? `<div style="margin-top:8px;color:#b0c4de;font-style:italic">"${score.verdict}"</div>` : ''}
+  `;
+  elements.conversation.appendChild(el);
+  elements.conversation.scrollTop = elements.conversation.scrollHeight;
+}
+
+async function bootstrapMissionFromImage(pageContent) {
+  if (STATE.mode !== 'mission') return;
+
+  STATE.missionOverride = {
+    target_grammar: pageContent.structures || [],
+    forbidden_patterns: ['그리고', '그래서', '그냥', '좀'],
+    topic: pageContent.theme || '오늘의 주제',
+    mission_brief: `${pageContent.theme}의 핵심 구조를 활용하여 논리적으로 말하세요.`,
+    vocabulary: pageContent.vocabulary || []
+  };
+
+  console.log('Mission calibrée depuis image:', STATE.missionOverride);
+
+  const notif = document.createElement('div');
+  notif.style.cssText = `
+    background: linear-gradient(135deg, #ff6b35, #f7931e);
+    color: white;
+    padding: 12px 16px;
+    border-radius: 10px;
+    margin: 8px 0;
+    font-size: 14px;
+  `;
+  notif.innerHTML = `⚡ <strong>Mission recalibrée</strong> depuis la page analysée<br>
+    <small>Structures cibles : ${(pageContent.structures || []).slice(0, 3).join(' / ')}</small>`;
+  elements.conversation.appendChild(notif);
+  elements.conversation.scrollTop = elements.conversation.scrollHeight;
 }
 
 //#endregion
@@ -1214,6 +1308,7 @@ function initPhotoInput() {
         // If for current unit, update pageContext
         if (targetUnitId === STATE.unitId) {
           STATE.pageContext = ctx;
+          bootstrapMissionFromImage(ctx);
         }
 
         // Update photo button in modal if still open
