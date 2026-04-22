@@ -695,6 +695,16 @@ function applyApiKey() {
 
 //#region Unit selector
 
+const THEME_ICONS = {
+  health: '🏥', society: '👥', environment: '🌿', culture: '🎭',
+  work: '💼', language: '💬', daily_life: '🏠', technology: '💻'
+};
+
+function getThemeIcon(row) {
+  const raw = (row.grand_themes?.slug || row.grand_themes?.label_en || '').toLowerCase().replace(/[\s-]+/g, '_');
+  return THEME_ICONS[raw] || '📚';
+}
+
 let _pendingPhotoUnitId = null;
 
 function toggleLevel(levelKey) {
@@ -736,7 +746,9 @@ async function buildUnitSelectorList() {
     groups[key].push(row);
   });
 
-  const activeLevel = STATE.activeUnit?.level || null;
+  const activeLevel = STATE.activeUnit?.level
+    || STATE.unitId.match(/snu_(\w+)_\d+_\d+/)?.[1]?.toUpperCase()
+    || null;
 
   Object.keys(groups).sort().forEach(levelKey => {
     const isActiveLevel = levelKey === activeLevel;
@@ -754,10 +766,8 @@ async function buildUnitSelectorList() {
 
     const label = document.createElement('span');
     label.className = 'level-label';
-    const themes = [...new Set(
-      groups[levelKey].map(r => r.grand_themes?.label_ko).filter(Boolean)
-    )];
-    label.textContent = themes.length ? themes.join(' → ') : `SNU ${levelKey}`;
+    const count = groups[levelKey].length;
+    label.textContent = `${count} leçon${count > 1 ? 's' : ''}`;
 
     const arrow = document.createElement('span');
     arrow.className = 'level-arrow';
@@ -776,46 +786,36 @@ async function buildUnitSelectorList() {
     groups[levelKey].forEach(row => {
       const unit = normalizeSNUUnit(row);
 
-      const itemRow = document.createElement('div');
-      itemRow.className = 'unit-selector-item' + (unit.id === STATE.unitId ? ' active' : '');
+      const itemEl = document.createElement('div');
+      itemEl.className = 'unit-item' + (unit.id === STATE.unitId ? ' active' : '');
+      itemEl.addEventListener('click', () => selectUnit(unit.id, unit));
+
+      const numEl = document.createElement('span');
+      numEl.className = 'unit-number';
+      numEl.textContent = `${unit.unit_number}-${unit.lesson_number}`;
 
       const infoEl = document.createElement('div');
-      infoEl.className = 'unit-selector-item__info';
+      infoEl.className = 'unit-info';
 
-      const titleEl = document.createElement('span');
-      titleEl.className = 'unit-selector-item__title';
-      titleEl.textContent = unit.title;
+      const titleKoEl = document.createElement('span');
+      titleKoEl.className = 'unit-title-ko';
+      titleKoEl.textContent = unit.title;
 
-      const subEl = document.createElement('span');
-      subEl.className = 'unit-selector-item__sub';
-      subEl.textContent = `${unit.subtitle} · ${unit.snu_level}`;
+      const titleEnEl = document.createElement('span');
+      titleEnEl.className = 'unit-title-en';
+      titleEnEl.textContent = unit.subtitle;
 
-      infoEl.appendChild(titleEl);
-      infoEl.appendChild(subEl);
-      infoEl.addEventListener('click', () => selectUnit(unit.id, unit));
+      infoEl.appendChild(titleKoEl);
+      infoEl.appendChild(titleEnEl);
 
-      const photoBtn = document.createElement('button');
-      photoBtn.type = 'button';
-      photoBtn.className = 'unit-selector-item__photo';
-      photoBtn.title = '이 단원의 교재 페이지 추가';
-      photoBtn.textContent = '📸';
-      photoBtn.dataset.unitId = unit.id;
+      const themeEl = document.createElement('span');
+      themeEl.className = 'unit-theme-icon';
+      themeEl.textContent = getThemeIcon(row);
 
-      photoBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        _pendingPhotoUnitId = unit.id;
-        elements.photoFileInput.click();
-      });
-
-      if (window.getLessonContent) {
-        window.getLessonContent(unit.id).then(content => {
-          if (content) photoBtn.classList.add('has-content');
-        });
-      }
-
-      itemRow.appendChild(infoEl);
-      itemRow.appendChild(photoBtn);
-      unitsContainer.appendChild(itemRow);
+      itemEl.appendChild(numEl);
+      itemEl.appendChild(infoEl);
+      itemEl.appendChild(themeEl);
+      unitsContainer.appendChild(itemEl);
     });
 
     groupEl.appendChild(unitsContainer);
