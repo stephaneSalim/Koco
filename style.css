@@ -2480,3 +2480,222 @@ input:focus-visible {
 .mb-medium {
   margin-bottom: 16px;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DRILL DU JOUR — Widget + Modal SRS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Badge rouge sur l'onglet 통계 */
+.nav-tab {
+  position: relative;
+}
+.stats-tab-badge {
+  position: absolute;
+  top: 6px;
+  right: calc(50% - 22px);
+  background: #ff3b30;
+  color: white;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  pointer-events: none;
+}
+
+/* Widget flottant en haut de la conversation */
+.drill-widget {
+  background: #fff;
+  border: 1px solid #e0f2e9;
+  border-left: 4px solid #00a884;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin: 0 0 12px;
+  animation: slideIn 0.3s ease-out;
+}
+.drill-widget-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.drill-widget-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+.drill-widget-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.drill-widget-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+.drill-widget-count {
+  font-size: 12px;
+  color: #8696A0;
+}
+.drill-widget-btn {
+  background: #00a884;
+  color: white;
+  border: none;
+  border-radius: 20px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.drill-widget-btn:active { background: #008a6c; }
+
+/* Modal drill plein écran */
+.drill-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 3000;
+  display: flex;
+  align-items: flex-end;
+}
+.drill-modal-content {
+  background: #fff;
+  border-radius: 20px 20px 0 0;
+  padding: 24px 20px calc(32px + env(safe-area-inset-bottom, 16px));
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.drill-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.drill-type-badge {
+  background: #e8f0fe;
+  color: #1a73e8;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.drill-progress {
+  font-size: 13px;
+  color: #8696A0;
+  font-weight: 600;
+}
+.drill-instruction {
+  font-size: 14px;
+  color: #8696A0;
+  font-weight: 500;
+}
+.drill-prompt {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1a1a1a;
+  line-height: 1.5;
+  background: #f8f9fa;
+  padding: 16px;
+  border-radius: 12px;
+}
+.drill-answer-input {
+  width: 100%;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 16px;
+  font-family: inherit;
+  resize: none;
+  outline: none;
+  transition: border-color 0.2s;
+  -webkit-user-select: text;
+  user-select: text;
+}
+.drill-answer-input:focus { border-color: #4a90e2; }
+.drill-actions {
+  display: flex;
+  gap: 10px;
+}
+.drill-btn-skip {
+  flex: 1;
+  padding: 14px;
+  border: 1px solid #e0e0e0;
+  background: #fff;
+  border-radius: 12px;
+  font-size: 15px;
+  color: #666;
+  cursor: pointer;
+}
+.drill-btn-submit {
+  flex: 2;
+  padding: 14px;
+  border: none;
+  background: #4a90e2;
+  color: white;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.drill-btn-submit:active { background: #357abd; }
+
+/* Result — réponse + auto-évaluation */
+.drill-answer-label {
+  display: block;
+  font-size: 12px;
+  color: #8696A0;
+  font-weight: 600;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.drill-user-answer,
+.drill-correct-answer {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.drill-correct-answer {
+  background: #e8f5e9;
+}
+.drill-answer-text {
+  font-size: 16px;
+  color: #1a1a1a;
+  line-height: 1.4;
+}
+.drill-answer-text--correct {
+  color: #2e7d32;
+  font-weight: 600;
+}
+.drill-grade-prompt {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a1a1a;
+  text-align: center;
+}
+.drill-grade-actions {
+  display: flex;
+  gap: 8px;
+}
+.drill-grade-btn {
+  flex: 1;
+  padding: 14px 8px;
+  border: none;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.drill-grade-btn--miss    { background: #fce4ec; color: #c62828; }
+.drill-grade-btn--hard    { background: #fff3e0; color: #e65100; }
+.drill-grade-btn--easy    { background: #e8f5e9; color: #2e7d32; }
+.drill-grade-btn:active   { filter: brightness(0.92); }

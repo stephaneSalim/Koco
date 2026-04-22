@@ -860,6 +860,179 @@ function selectUnit(unitId, unitObj) {
 
 //#endregion
 
+//#region Drill du jour (SRS)
+
+let drillItems = [];
+let currentDrillIndex = 0;
+
+async function checkDueReviews() {
+  if (!window.getDueReviewItems) return;
+  const items = await window.getDueReviewItems(window.kocoUserId);
+  if (items.length === 0) return;
+
+  const badge = document.getElementById('statsTabBadge');
+  if (badge) {
+    badge.textContent = items.length;
+    badge.style.display = 'flex';
+  }
+
+  showDrillWidget(items);
+}
+
+function showDrillWidget(items) {
+  const existing = document.getElementById('drillWidget');
+  if (existing) existing.remove();
+
+  const widget = document.createElement('div');
+  widget.className = 'drill-widget';
+  widget.id = 'drillWidget';
+  widget.innerHTML = `
+    <div class="drill-widget-header">
+      <span class="drill-widget-icon">🧠</span>
+      <div class="drill-widget-info">
+        <span class="drill-widget-title">Drill du jour</span>
+        <span class="drill-widget-count">${items.length} révision${items.length > 1 ? 's' : ''} en attente</span>
+      </div>
+      <button class="drill-widget-btn" id="drillWidgetStartBtn">Commencer →</button>
+    </div>
+  `;
+
+  elements.conversation.prepend(widget);
+  document.getElementById('drillWidgetStartBtn').addEventListener('click', startDrillSession);
+}
+
+async function startDrillSession() {
+  if (!window.getDueReviewItems) return;
+  const items = await window.getDueReviewItems(window.kocoUserId);
+  if (items.length === 0) return;
+
+  drillItems = items;
+  currentDrillIndex = 0;
+  showDrill(drillItems[0]);
+}
+
+function getDrillTypeLabel(type) {
+  const labels = {
+    recognition: '🔍 Recognition',
+    recall: '🔄 Recall',
+    production: '✍️ Production'
+  };
+  return labels[type] || type;
+}
+
+function showDrill(item) {
+  const drillTypes = ['recognition', 'recall', 'production'];
+  const drillType = drillTypes[currentDrillIndex % 3];
+
+  let drillData;
+  try {
+    drillData = JSON.parse(item['drill_' + drillType]);
+  } catch (e) {
+    nextDrill();
+    return;
+  }
+
+  const existing = document.getElementById('drillModal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.className = 'drill-modal';
+  modal.id = 'drillModal';
+
+  const content = document.createElement('div');
+  content.className = 'drill-modal-content';
+  content.innerHTML = `
+    <div class="drill-header">
+      <span class="drill-type-badge">${getDrillTypeLabel(drillType)}</span>
+      <span class="drill-progress">${currentDrillIndex + 1} / ${drillItems.length}</span>
+    </div>
+    <div class="drill-instruction">${drillData.instruction}</div>
+    <div class="drill-prompt">${drillData.prompt}</div>
+    <textarea class="drill-answer-input" id="drillAnswerInput" placeholder="답을 입력하세요..." rows="3"></textarea>
+    <div class="drill-actions">
+      <button class="drill-btn-skip" id="drillSkipBtn">건너뛰기</button>
+      <button class="drill-btn-submit" id="drillSubmitBtn">확인 →</button>
+    </div>
+  `;
+
+  modal.appendChild(content);
+  document.body.appendChild(modal);
+
+  document.getElementById('drillSkipBtn').addEventListener('click', skipDrill);
+  document.getElementById('drillSubmitBtn').addEventListener('click', () => submitDrill(item.id, drillType, drillData));
+}
+
+function submitDrill(itemId, drillType, drillData) {
+  const answer = document.getElementById('drillAnswerInput')?.value?.trim();
+  if (!answer) return;
+
+  const item = drillItems.find(d => d.id === itemId);
+  if (!item) return;
+
+  const isProduction = drillType === 'production';
+  const correctAnswer = drillData.answer || drillData.target_structure || '—';
+
+  const content = document.querySelector('.drill-modal-content');
+  if (!content) return;
+
+  content.innerHTML = `
+    <div class="drill-header">
+      <span class="drill-type-badge">${getDrillTypeLabel(drillType)}</span>
+      <span class="drill-progress">${currentDrillIndex + 1} / ${drillItems.length}</span>
+    </div>
+    <div class="drill-user-answer">
+      <span class="drill-answer-label">Ta réponse</span>
+      <div class="drill-answer-text">${answer}</div>
+    </div>
+    <div class="drill-correct-answer">
+      <span class="drill-answer-label">${isProduction ? 'Structure cible' : 'Réponse correcte'}</span>
+      <div class="drill-answer-text drill-answer-text--correct">${correctAnswer}</div>
+    </div>
+    <div class="drill-grade-prompt">Tu as réussi ?</div>
+    <div class="drill-grade-actions">
+      <button class="drill-grade-btn drill-grade-btn--miss" id="drillMissBtn">❌ Raté</button>
+      <button class="drill-grade-btn drill-grade-btn--hard" id="drillHardBtn">😅 Difficile</button>
+      <button class="drill-grade-btn drill-grade-btn--easy" id="drillEasyBtn">✅ Facile</button>
+    </div>
+  `;
+
+  document.getElementById('drillMissBtn').addEventListener('click', () => gradeDrill(itemId, 'miss'));
+  document.getElementById('drillHardBtn').addEventListener('click', () => gradeDrill(itemId, 'hard'));
+  document.getElementById('drillEasyBtn').addEventListener('click', () => gradeDrill(itemId, 'easy'));
+}
+
+async function gradeDrill(itemId, grade) {
+  if (window.updateReviewItem) {
+    await window.updateReviewItem(itemId, grade);
+  }
+  nextDrill();
+}
+
+function skipDrill() {
+  nextDrill();
+}
+
+function nextDrill() {
+  currentDrillIndex++;
+  if (currentDrillIndex >= drillItems.length) {
+    closeDrillModal();
+    const widget = document.getElementById('drillWidget');
+    if (widget) widget.remove();
+    const badge = document.getElementById('statsTabBadge');
+    if (badge) badge.style.display = 'none';
+    showAlert('success', '🧠 Drills terminés ! Bravo.');
+    return;
+  }
+  showDrill(drillItems[currentDrillIndex]);
+}
+
+function closeDrillModal() {
+  const modal = document.getElementById('drillModal');
+  if (modal) modal.remove();
+}
+
+//#endregion
+
 //#region Distillateur
 
 async function runDistiller(corrections, unitId, userId) {
@@ -1179,6 +1352,8 @@ function initApp() {
       }
     });
   }
+
+  checkDueReviews();
 
   const apiKey = getApiKey();
   if (!apiKey) {

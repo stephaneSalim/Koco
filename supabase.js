@@ -232,6 +232,38 @@ async function getDueReviewItems(userId) {
 }
 window.getDueReviewItems = getDueReviewItems;
 
+async function updateReviewItem(itemId, grade) {
+  const { data, error: fetchError } = await window.supabaseClient
+    .from('review_items')
+    .select('interval_days')
+    .eq('id', itemId)
+    .maybeSingle();
+
+  if (fetchError || !data) return;
+
+  let interval = data.interval_days || 1;
+  let nextReview;
+
+  if (grade === 'easy') {
+    interval = Math.min(interval * 2, 60);
+    nextReview = new Date(Date.now() + interval * 24 * 60 * 60 * 1000).toISOString();
+  } else if (grade === 'hard') {
+    interval = 1;
+    nextReview = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+  } else {
+    interval = 1;
+    nextReview = new Date().toISOString();
+  }
+
+  const { error } = await window.supabaseClient
+    .from('review_items')
+    .update({ interval_days: interval, next_review_at: nextReview })
+    .eq('id', itemId);
+
+  if (error) console.error('updateReviewItem error:', JSON.stringify(error));
+}
+window.updateReviewItem = updateReviewItem;
+
 async function getAllSNUUnits() {
   const { data, error } = await window.supabaseClient
     .from('snu_units')
