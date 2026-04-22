@@ -81,13 +81,213 @@ async function requestApiKeyFromUser() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// CALIBRATION MATRIX 3A → 5B + SYSTEM PROMPT GENERATION
+// ═══════════════════════════════════════════════════════════════════════════
+
+const MISSIONS_CONFIG = {
+
+  // ── 3A/3B : Morphological Accuracy ──────────────
+  '3A': {
+    difficulty_level: '3A',
+    severity: 'morphological',
+    objective: 'Morphological Accuracy — connecteurs de base maîtrisés',
+    target_grammar: ['-아/어서', '-(으)ㄹ 것 같다', '-고 싶다', '-는데'],
+    forbidden_patterns: ['음...', '그냥', '좀', '뭐'],
+    min_clauses: 2,
+    tolerance: 'medium',
+    mission_brief: '기본 연결어와 형태소를 정확하게 사용하세요.',
+    topic: '일상 표현'
+  },
+  '3B': {
+    difficulty_level: '3B',
+    severity: 'morphological',
+    objective: 'Morphological Accuracy — expressions de regret et possibilité',
+    target_grammar: ['-았/었으면 좋겠다', '-는 것 같다', '-(으)ㄹ 수 있다', '-아/어 보다'],
+    forbidden_patterns: ['그냥', '좀', '음...', '뭐'],
+    min_clauses: 2,
+    tolerance: 'medium',
+    mission_brief: '가능성과 바람을 정확한 형태소로 표현하세요.',
+    topic: '경험과 바람'
+  },
+
+  // ── 4A/4B : Argumentative Flow ───────────────────
+  '4A': {
+    difficulty_level: '4A',
+    severity: 'argumentative',
+    objective: 'Argumentative Flow — contexte social nuancé',
+    target_grammar: ['-는 바람에', '-(으)ㄹ 뻔했다', '-고 나서', '-(으)ㄴ 덕분에'],
+    forbidden_patterns: ['그리고', '그냥', '좀', '근데'],
+    min_clauses: 2,
+    tolerance: 'low',
+    mission_brief: '사회적 맥락을 논리적 흐름으로 설명하세요.',
+    topic: '사회와 변화'
+  },
+  '4B': {
+    difficulty_level: '4B',
+    severity: 'argumentative',
+    objective: 'Argumentative Flow — structures conditionnelles avancées',
+    target_grammar: ['-는다고 해서', '-(으)ㄹ수록', '-던', '-(으)ㄴ/는 반면에'],
+    forbidden_patterns: ['그리고', '그래서', '그냥', '근데'],
+    min_clauses: 2,
+    tolerance: 'low',
+    mission_brief: '조건과 대조를 활용한 논증을 구성하세요.',
+    topic: '태도와 비교'
+  },
+
+  // ── 5A : Academic Precision ───────────────────────
+  'snu_5a_1_1': {
+    difficulty_level: '5A',
+    severity: 'academic',
+    objective: 'Academic Precision — nutrition et santé',
+    target_grammar: ['-아/어야 하다', '-는 편이다', '-기 위해서'],
+    forbidden_patterns: ['그리고', '그래서', '그냥', '좀', '그래가지고'],
+    min_clauses: 2,
+    tolerance: 'zero',
+    mission_brief: '영양에 대해 학문적 표현을 사용하여 논증하세요.',
+    topic: '음식과 영양'
+  },
+  'snu_5a_2_1': {
+    difficulty_level: '5A',
+    severity: 'academic',
+    objective: 'Academic Precision — bonheur et repos',
+    target_grammar: ['-기 마련이다', '-(으)ㄹ수록', '-다 보면'],
+    forbidden_patterns: ['그리고', '그래서', '그냥', '좀', '그래가지고'],
+    min_clauses: 2,
+    tolerance: 'zero',
+    mission_brief: '행복의 조건을 논리적으로 주장하세요.',
+    topic: '행복과 휴식'
+  },
+  'snu_5a_3_1': {
+    difficulty_level: '5A',
+    severity: 'academic',
+    objective: 'Academic Precision — langue et culture',
+    target_grammar: ['-(으)ㄴ/는 데에 비해서', '-는 반면에', '-(으)ㄹ 따름이다'],
+    forbidden_patterns: ['그리고', '그래서', '그냥', '좀', '그래가지고'],
+    min_clauses: 2,
+    tolerance: 'zero',
+    mission_brief: '언어와 문화의 관계를 비교하며 분석하세요.',
+    topic: '언어와 문화'
+  },
+  'snu_5a_4_1': {
+    difficulty_level: '5A',
+    severity: 'academic',
+    objective: 'Academic Precision — stéréotypes',
+    target_grammar: ['-는 탓에', '-(으)ㄴ/는 셈이다', '-기는커녕'],
+    forbidden_patterns: ['그리고', '그래서', '그냥', '좀', '그래가지고'],
+    min_clauses: 2,
+    tolerance: 'zero',
+    mission_brief: '고정관념의 문제점을 학문적으로 비판하세요.',
+    topic: '사고와 고정 관념'
+  },
+  'snu_5a_5_1': {
+    difficulty_level: '5A',
+    severity: 'academic',
+    objective: 'Academic Precision — climat',
+    target_grammar: ['-에 따라', '-(으)ㄹ 것으로 보인다', '-는 추세이다'],
+    forbidden_patterns: ['그리고', '그래서', '그냥', '좀', '그래가지고'],
+    min_clauses: 2,
+    tolerance: 'zero',
+    mission_brief: '기후 변화의 원인과 결과를 분석하세요.',
+    topic: '기후와 지형'
+  },
+  'snu_5a_6_1': {
+    difficulty_level: '5A',
+    severity: 'academic',
+    objective: 'Academic Precision — environnement',
+    target_grammar: ['-와/과 더불어', '-을/를 통해', '-(으)ㄴ 결과'],
+    forbidden_patterns: ['그리고', '그래서', '그냥', '좀', '그래가지고'],
+    min_clauses: 2,
+    tolerance: 'zero',
+    mission_brief: '환경과 주거 공간의 관계를 분석하세요.',
+    topic: '환경과 주거 공간'
+  },
+  'snu_5a_7_1': {
+    difficulty_level: '5A',
+    severity: 'academic',
+    objective: 'Academic Precision — psychologie',
+    target_grammar: ['-는 경향이 있다', '-(으)ㄹ 수밖에 없다', '-에 의해'],
+    forbidden_patterns: ['그리고', '그래서', '그냥', '좀', '그래가지고'],
+    min_clauses: 2,
+    tolerance: 'zero',
+    mission_brief: '인간 심리와 관계를 학문적으로 분석하세요.',
+    topic: '인간과 심리'
+  },
+  'snu_5a_8_1': {
+    difficulty_level: '5A',
+    severity: 'academic',
+    objective: 'Academic Precision — avenir du travail',
+    target_grammar: ['-아/어질 것이다', '-에 따른', '-(으)ㄹ 전망이다'],
+    forbidden_patterns: ['그리고', '그래서', '그냥', '좀', '그래가지고'],
+    min_clauses: 2,
+    tolerance: 'zero',
+    mission_brief: '직업의 미래를 데이터 기반으로 논증하세요.',
+    topic: '직업의 미래'
+  },
+
+  // ── 5A générique ──────────────────────────────────
+  '5A': {
+    difficulty_level: '5A',
+    severity: 'academic',
+    objective: 'Academic Precision',
+    target_grammar: ['-기 마련이다', '-(으)ㄹ수록', '-는 한', '-다 보면', '-(으)ㄹ 따름이다'],
+    forbidden_patterns: ['그리고', '그래서', '그냥', '좀', '그래가지고'],
+    min_clauses: 2,
+    tolerance: 'zero',
+    mission_brief: '고급 연결 표현을 활용하여 학문적으로 논증하세요.',
+    topic: '학술 표현'
+  },
+
+  // ── 5B : Academic Precision + Hanja ──────────────
+  '5B': {
+    difficulty_level: '5B',
+    severity: 'academic',
+    objective: 'Academic Precision — tolérance zéro, Hanja requis',
+    target_grammar: ['-느니만큼', '-거들랑', '-다가는', '-(으)ㄹ진대'],
+    forbidden_patterns: ['그리고', '그래서', '그냥', '좀', '근데', '그래가지고'],
+    min_clauses: 3,
+    tolerance: 'zero',
+    mission_brief: '한자어를 활용하여 학문적 수준의 논증을 구성하세요.',
+    topic: '고급 학술 표현'
+  },
+
+  // ── Default fallback ──────────────────────────────
+  'default': {
+    difficulty_level: '5A',
+    severity: 'academic',
+    objective: 'Academic Precision',
+    target_grammar: ['-기 마련이다', '-(으)ㄹ 따름이다', '-는 한'],
+    forbidden_patterns: ['그리고', '그래서', '그냥'],
+    min_clauses: 2,
+    tolerance: 'low',
+    mission_brief: '고급 표현을 사용하여 논리적으로 말하세요.',
+    topic: '자유 주제'
+  }
+};
+
+window.MISSIONS_CONFIG = MISSIONS_CONFIG;
+
+function resolveMissionConfig(unitId) {
+  if (!unitId) return MISSIONS_CONFIG['default'];
+  if (MISSIONS_CONFIG[unitId]) return MISSIONS_CONFIG[unitId];
+
+  const levelMatch = unitId.match(/snu_(\w+)_/);
+  if (levelMatch) {
+    const level = levelMatch[1].toUpperCase();
+    if (MISSIONS_CONFIG[level]) return MISSIONS_CONFIG[level];
+  }
+
+  return MISSIONS_CONFIG['default'];
+}
+window.resolveMissionConfig = resolveMissionConfig;
+
+// ═══════════════════════════════════════════════════════════════════════════
 // SYSTEM PROMPT GENERATION
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
  * Generate system prompt for conversation companion
  * CRITICAL: Optimized for FLUENCY, not perfection
- * 
+ *
  * @param {Object} context - Session context from data.js
  *   - unit: current unit data
  *   - targetLevel: competency level (1, 2, or 3)
@@ -149,111 +349,119 @@ NOTE: (one short explanation in French)
 - This block must ALWAYS be present`;
 
   if (mode === 'mission') {
-    const unitKey = context.unitId || 'default';
-    const missionCfg = context.missionOverride
-      || window.MISSIONS_CONFIG?.[unitKey]
-      || window.MISSIONS_CONFIG?.['default'];
+    const missionCfg = context.missionOverride || resolveMissionConfig(context.unitId);
 
-    if (!missionCfg) {
-      return `KoCo mission mode — config manquante. Parle coréen librement.`;
-    }
+    const severity = missionCfg.severity || 'academic';
+    const tolerance = missionCfg.tolerance || 'low';
 
-    return `Tu es KoCo-Expert, un superviseur académique de coréen niveau TOPIK 5/6. Ton modèle est celui d'un directeur de laboratoire : exigeant, précis, axé résultats.
-Tu ne valides JAMAIS une réponse insuffisante.
+    const severityDesc = {
+      morphological: '형태소 정확성 — 기본 연결어와 문법 구조 완성도',
+      argumentative: '논증 흐름 — 사회적 맥락과 논리적 전개',
+      academic: '학문적 정밀도 — 한자어 활용, 논문 수준 표현'
+    };
+
+    const toleranceDesc = {
+      medium: '중간 — 기본 오류는 허용, 구조 오류는 수정 요구',
+      low: '낮음 — 모든 구조 오류 즉시 차단',
+      zero: '제로 — 단 하나의 금지 표현도 허용하지 않음'
+    };
+
+    return `당신은 KoCo-Expert입니다.
+TOPIK ${missionCfg.difficulty_level} 전문 지도 교수.
+모델: 연구실 지도교수 — 엄격하고 정밀하며 결과 중심.
+타협 없음. 불충분한 답변은 절대 통과시키지 않음.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-CONTEXTE DE SESSION
+SESSION CONTEXT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-NIVEAU CIBLE : TOPIK 5급-6급
-UNITÉ SNU : ${unitTitle}
-GRAND THÈME : ${grandTheme || ''}
-SOUS-THÈME : ${sousTheme || ''}
-MISSION : ${missionCfg.mission_brief}
+LEVEL: ${missionCfg.difficulty_level}
+SEVERITY: ${severityDesc[severity] || severity}
+TOLERANCE: ${toleranceDesc[tolerance] || tolerance}
+UNIT: ${unitTitle}
+MISSION: ${missionCfg.mission_brief}
+${context.missionOverride ? '⚡ CALIBRATION: Vision OCR Override Active' : ''}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-STRUCTURES CIBLES (évaluation sémantique obligatoire)
+TARGET STRUCTURES (semantic evaluation required)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ${(missionCfg.target_grammar || []).map(g => `• ${g}`).join('\n')}
 
-RÈGLE D'ÉVALUATION NUANCÉE :
-La simple présence d'une structure ne suffit PAS.
-Tu évalues si elle est utilisée avec la complexité sémantique attendue au niveau 5B :
-- Usage mécanique → STATUS: minor + "형식적 사용 — 더 깊이"
-- Usage pertinent → STATUS: correct + validation courte
-- Usage expert → STATUS: correct + "탁월한 표현입니다"
+평가 기준 (3단계):
+- 형식적 사용 → STATUS: minor | "형식적 사용 — 더 깊이"
+- 적절한 사용 → STATUS: correct | 짧은 검증
+- 전문적 사용 → STATUS: correct | "탁월한 표현입니다"
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-CONTRAINTES DE PRODUCTION
+PRODUCTION CONSTRAINTS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-INTERDITS ABSOLUS :
-${(missionCfg.forbidden_patterns || []).map(p => `• ${p}`).join('\n')}
+금지 표현 (절대 금지):
+${(missionCfg.forbidden_patterns || []).map(p => `• "${p}"`).join('\n')}
 
-EXIGENCES MINIMALES PAR RÉPONSE :
-- Minimum 2 propositions complexes par tour
-- Au moins 1 structure cible par réponse
-- Aucun connecteur "paresseux"
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PROTOCOLE DE BLOCAGE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-SI l'utilisateur ne respecte PAS les contraintes :
-1. NE PAS progresser dans la conversation
-2. Identifier précisément le manquement :
-   "❌ [structure] 미사용 — 다음 표현으로 재구성하세요: ..."
-3. Proposer une amorce pour guider la reformulation
-4. Attendre la reformulation avant de continuer
-
-SI l'utilisateur utilise un pattern interdit :
-"⚠️ '[pattern]' 감지 — 금지된 표현입니다. 대체 연결어를 사용하세요."
+최소 요구사항:
+- 응답당 최소 ${missionCfg.min_clauses || 2}개의 복잡한 절
+- 매 응답에 목표 구조 최소 1개 사용
+- 한자어 우선 사용 (5A/5B)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-CALIBRATION DYNAMIQUE (si image fournie)
+BLOCKING PROTOCOL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+목표 구조 미사용 시:
+"❌ [구조] 미사용
+다음 표현으로 재구성하세요: [아무개]
+수정 후 계속 진행 가능합니다."
+
+금지 표현 감지 시:
+"⚠️ '[표현]' 감지 (${tolerance === 'zero' ? '절대 금지' : '금지'})
+대체 연결어: [대안 제시]
+재작성 후 계속 진행."
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+VISION CALIBRATION
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ${context.missionOverride ? `
-⚡ SESSION CALIBRÉE PAR IMAGE
-Les structures et vocabulaire suivants ont été extraits directement du manuel et écrasent la configuration par défaut :
-Vocabulaire : ${(missionCfg.vocabulary || []).join(', ')}
-Structures : ${(missionCfg.target_grammar || []).join(', ')}
+⚡ OCR OVERRIDE ACTIVE
+이미지에서 추출된 구조와 어휘로 세션 재보정됨:
+어휘: ${(missionCfg.vocabulary || []).join(', ')}
+구조: ${(missionCfg.target_grammar || []).join(' / ')}
 ` : ''}
 ${pageContextBlock}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-SCORING FINAL (après 8 échanges)
+FINAL SCORING (after 8 exchanges)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Génère EXACTEMENT ce bloc parseable :
+Generate EXACTLY this parseable block:
 
 [MISSION_SCORE]
+LEVEL: ${missionCfg.difficulty_level}
 STRUCTURES_USED: (ex: -기 마련이다[Mastered], -ㄹ수록[Used])
 STRUCTURES_MISSED: (ex: -는 한)
-FORBIDDEN_PATTERNS_DETECTED: (ex: 2x '그리고', 1x '그래서')
-COMPLEXITY_INDEX: (X/10 — basé sur longueur + connecteurs)
+FORBIDDEN_COUNT: (int — nombre total de patterns interdits détectés)
+COMPLEXITY_INDEX: (X/10)
 SCORE: (X/10)
-VERDICT: (évaluation concise en coréen académique)
+VERDICT: (concise academic Korean evaluation)
 [/MISSION_SCORE]
 
-PHRASES GMS :
+GMS:
 ${gmsLines}
 ${correctionBlock}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-OUVERTURE
+OPENING
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Commence ainsi :
-"🎯 미션 브리핑
-주제: ${missionCfg.topic}
+"🎯 미션 브리핑 [${missionCfg.difficulty_level}]
 목표: ${missionCfg.mission_brief}
+평가 기준: ${severityDesc[severity] || severity}
 
 필수 구조: ${(missionCfg.target_grammar || []).join(' / ')}
 금지 표현: ${(missionCfg.forbidden_patterns || []).join(', ')}
+허용 오차: ${toleranceDesc[tolerance] || tolerance}
 
-규칙: 각 응답에 최소 하나의 목표 구조 사용 필수.
-미준수 시 진행 불가.
-
+규칙: 목표 구조 미사용 시 진행 불가.
 시작하세요 →"`;
   }
 

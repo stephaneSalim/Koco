@@ -671,47 +671,6 @@ function getRandomQuestion(unitId, mode) {
  * @param {number} level - Competency level
  * @returns {Object} Context data
  */
-// ═══════════════════════════════════════════════════════════════════════════
-// MISSIONS CONFIG — Zero Hardcoding (image calibration écrase cette config)
-// ═══════════════════════════════════════════════════════════════════════════
-
-window.MISSIONS_CONFIG = {
-  default: {
-    topic: '한국 사회와 문화',
-    mission_brief: '고급 연결 표현과 문법 구조를 활용하여 논리적으로 주장하고 근거를 제시하세요.',
-    target_grammar: [
-      '-기 마련이다',
-      '-(으)ㄹ수록',
-      '-는 한',
-      '-(으)ㄴ/는 데에 비해서',
-      '-다 보면',
-      '-(으)ㄹ 따름이다'
-    ],
-    forbidden_patterns: ['그리고', '그래서', '그냥', '좀'],
-    vocabulary: []
-  },
-  snu_5a_1_1: {
-    topic: '시작과 만남',
-    mission_brief: '첫 만남과 자기소개 상황에서 고급 표현으로 자신을 소개하고 관계를 형성하세요.',
-    target_grammar: ['-기 마련이다', '-는 한', '-(으)ㄴ/는 데에 비해서'],
-    forbidden_patterns: ['그리고', '그냥', '좀', '그래서'],
-    vocabulary: []
-  },
-  snu_5b_1_1: {
-    topic: '사회와 문화',
-    mission_brief: '사회 현상을 분석하고 논리적 근거로 자신의 견해를 전개하세요.',
-    target_grammar: [
-      '-기 마련이다',
-      '-(으)ㄹ수록',
-      '-는 한',
-      '-다 보면',
-      '-(으)ㄹ 따름이다'
-    ],
-    forbidden_patterns: ['그리고', '그래서', '그냥', '좀'],
-    vocabulary: []
-  }
-};
-
 function getSessionContext(unitId, level) {
   const unit = getUnit(unitId);
   const structures = getStructuresByLevel(level);

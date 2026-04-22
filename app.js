@@ -25,8 +25,7 @@ const STATE = {
   isSpeaking: false,
   messageCount: 0,
   sessionCorrections: [],
-  pageContext: null,
-  missionOverride: null
+  pageContext: null
 };
 
 // Normalize a Supabase snu_units row to a stable unit object used throughout the app
@@ -468,10 +467,19 @@ function updateMode(newMode) {
   hideStatsScreen();
 
   if (!MODE_INFO[newMode]) return;
+
+  if (STATE.mode === 'mission' && newMode !== 'mission') {
+    MissionMgr.deactivate();
+  }
+
   STATE.mode = newMode;
   STATE.usedQuestions[newMode] = STATE.usedQuestions[newMode] || new Set();
   STATE.messageCount = 0;
   STATE.sessionCorrections = [];
+
+  if (newMode === 'mission') {
+    MissionMgr.activate(STATE.unitId);
+  }
 
   conversationManager.clear();
   elements.conversation.innerHTML = '';
@@ -614,7 +622,7 @@ async function processUserInput(text) {
   const context = getSessionContext(dataUnitId, parseInt(STATE.activeUnit?.level?.[1] || '3', 10) || 3);
   context.unit = STATE.activeUnit || context.unit;
   context.unitId = STATE.unitId;
-  context.missionOverride = STATE.missionOverride || null;
+  context.missionOverride = MissionMgr.getContext();
   const systemPrompt = generateSystemPrompt(context, STATE.mode, STATE.gmsSentences, STATE.pageContext);
 
   STATE.isProcessing = true;
@@ -645,12 +653,14 @@ async function processUserInput(text) {
     }
 
     if (STATE.mode === 'mission') {
-      const missionScore = parseMissionScore(result.response);
+      MissionMgr.incrementExchange();
+      const missionScore = MissionMgr.parseScore(result.response);
       if (missionScore) {
         showMissionScore(missionScore);
         if (window.saveMissionMetrics) {
-          window.saveMissionMetrics(missionScore, STATE.unitId, STATE.missionOverride);
+          window.saveMissionMetrics(missionScore, STATE.unitId, MissionMgr.getContext());
         }
+        MissionMgr.deactivate();
       }
     }
 
@@ -855,7 +865,7 @@ function selectUnit(unitId, unitObj) {
   conversationManager.clear();
   elements.conversation.innerHTML = '';
   STATE.pageContext = null;
-  STATE.missionOverride = null;
+  MissionMgr.deactivate();
 
   if (window.getLessonContent) {
     window.getLessonContent(unitId).then(content => {
@@ -876,28 +886,90 @@ function selectUnit(unitId, unitObj) {
 
 //#endregion
 
-//#region Mission Engine
+//#region Mission Engine — MissionManager
 
-function extractField(text, field) {
-  const match = text.match(new RegExp(field + ':\\s*(.+)'));
-  return match ? match[1].trim() : '';
+class MissionManager {
+  constructor() {
+    this.active = false;
+    this.override = null;
+    this.exchangeCount = 0;
+    this.scoreDetected = false;
+  }
+
+  activate(unitId) {
+    this.active = true;
+    this.exchangeCount = 0;
+    this.scoreDetected = false;
+    this.override = null;
+
+    const cfg = window.resolveMissionConfig ? window.resolveMissionConfig(unitId) : null;
+    console.log('Mission activated:', cfg?.difficulty_level, '| severity:', cfg?.severity);
+    return cfg;
+  }
+
+  deactivate() {
+    this.active = false;
+    this.override = null;
+    this.exchangeCount = 0;
+    this.scoreDetected = false;
+  }
+
+  calibrateFromVision(pageContent) {
+    if (!this.active) return null;
+
+    this.override = {
+      difficulty_level: STATE.activeUnit?.level || '5A',
+      severity: 'academic',
+      target_grammar: pageContent.structures || [],
+      forbidden_patterns: ['그리고', '그래서', '그냥', '좀', '그래가지고'],
+      min_clauses: 2,
+      tolerance: 'zero',
+      topic: pageContent.theme || '',
+      mission_brief: `${pageContent.theme}의 핵심 구조를 활용하여 논리적으로 말하세요.`,
+      vocabulary: pageContent.vocabulary || []
+    };
+
+    console.log('Mission calibrated from vision:', this.override);
+    return this.override;
+  }
+
+  incrementExchange() {
+    this.exchangeCount++;
+    console.log('Mission exchange:', this.exchangeCount);
+  }
+
+  parseScore(text) {
+    if (this.scoreDetected) return null;
+    const match = text.match(/\[MISSION_SCORE\]([\s\S]*?)\[\/MISSION_SCORE\]/);
+    if (!match) return null;
+
+    this.scoreDetected = true;
+    const block = match[1];
+
+    const extract = (field) => {
+      const m = block.match(new RegExp(field + ':\\s*(.+)'));
+      return m ? m[1].trim() : '';
+    };
+
+    return {
+      level:            extract('LEVEL'),
+      structures_used:  extract('STRUCTURES_USED'),
+      structures_missed: extract('STRUCTURES_MISSED'),
+      forbidden_count:  parseInt(extract('FORBIDDEN_COUNT')) || 0,
+      complexity_index: parseFloat(extract('COMPLEXITY_INDEX')) || 0,
+      score:            extract('SCORE'),
+      score_numeric:    parseFloat(extract('SCORE')) || 0,
+      verdict:          extract('VERDICT')
+    };
+  }
+
+  getContext() {
+    return this.override || null;
+  }
 }
 
-function parseMissionScore(text) {
-  const match = text.match(/\[MISSION_SCORE\]([\s\S]*?)\[\/MISSION_SCORE\]/);
-  if (!match) return null;
-
-  const block = match[1];
-  return {
-    structures_used:    extractField(block, 'STRUCTURES_USED'),
-    structures_missed:  extractField(block, 'STRUCTURES_MISSED'),
-    forbidden_detected: extractField(block, 'FORBIDDEN_PATTERNS_DETECTED'),
-    complexity_index:   parseFloat(extractField(block, 'COMPLEXITY_INDEX')) || 0,
-    score:              extractField(block, 'SCORE'),
-    score_numeric:      parseFloat(extractField(block, 'SCORE')) || 0,
-    verdict:            extractField(block, 'VERDICT')
-  };
-}
+const MissionMgr = new MissionManager();
+window.MissionMgr = MissionMgr;
 
 function showMissionScore(score) {
   const el = document.createElement('div');
@@ -912,11 +984,11 @@ function showMissionScore(score) {
   `;
   el.innerHTML = `
     <div style="font-size:16px;font-weight:800;color:#f7931e;margin-bottom:10px">
-      🎯 미션 결과 — ${score.score} / 10
+      🎯 미션 결과 [${score.level || '5A'}] — ${score.score} / 10
     </div>
     ${score.structures_used ? `<div>✅ <strong>사용 구조:</strong> ${score.structures_used}</div>` : ''}
     ${score.structures_missed ? `<div>❌ <strong>미사용 구조:</strong> ${score.structures_missed}</div>` : ''}
-    ${score.forbidden_detected ? `<div>⚠️ <strong>금지 표현:</strong> ${score.forbidden_detected}</div>` : ''}
+    ${score.forbidden_count ? `<div>⚠️ <strong>금지 표현 감지:</strong> ${score.forbidden_count}회</div>` : ''}
     <div>📊 <strong>복잡도:</strong> ${score.complexity_index}/10</div>
     ${score.verdict ? `<div style="margin-top:8px;color:#b0c4de;font-style:italic">"${score.verdict}"</div>` : ''}
   `;
@@ -925,17 +997,8 @@ function showMissionScore(score) {
 }
 
 async function bootstrapMissionFromImage(pageContent) {
-  if (STATE.mode !== 'mission') return;
-
-  STATE.missionOverride = {
-    target_grammar: pageContent.structures || [],
-    forbidden_patterns: ['그리고', '그래서', '그냥', '좀'],
-    topic: pageContent.theme || '오늘의 주제',
-    mission_brief: `${pageContent.theme}의 핵심 구조를 활용하여 논리적으로 말하세요.`,
-    vocabulary: pageContent.vocabulary || []
-  };
-
-  console.log('Mission calibrée depuis image:', STATE.missionOverride);
+  const override = MissionMgr.calibrateFromVision(pageContent);
+  if (!override) return;
 
   const notif = document.createElement('div');
   notif.style.cssText = `
