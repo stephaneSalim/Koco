@@ -250,6 +250,76 @@ const MISSIONS_CONFIG = {
     topic: '고급 학술 표현'
   },
 
+  // ── 6A : Thesis / Academic Mastery ───────────────
+  '6A': {
+    difficulty_level: '6A',
+    severity: 'thesis',
+    objective: 'Thesis Mastery — argumentation académique complète avec hanja',
+    target_grammar: [
+      '-(으)ㄹ진대',
+      '-거니와',
+      '-ㄴ/는다는 점에서',
+      '-에 기인하다',
+      '-을/를 고려할 때',
+      '-(이)라 할지라도'
+    ],
+    forbidden_patterns: ['그리고', '그래서', '그냥', '좀', '근데', '그래가지고', '뭐', '막', '되게'],
+    min_clauses: 3,
+    tolerance: 'zero',
+    hanja_required: true,
+    repetition_penalty: true,
+    mission_brief: '논문 수준의 주장을 한자어와 고급 연결어로 전개하세요.',
+    topic: '학술 논증'
+  },
+
+  // ── 6B : Expert Academic / Discourse Analysis ────
+  '6B': {
+    difficulty_level: '6B',
+    severity: 'thesis',
+    objective: 'Expert Academic — discourse analysis, no deictics, no repetition',
+    target_grammar: [
+      '-는 바이다',
+      '-(으)ㄹ 나위 없다',
+      '-에 불과하다',
+      '-를 감안하면',
+      '-는 데 그치지 않고',
+      '-(으)로 귀결되다'
+    ],
+    forbidden_patterns: [
+      '그리고', '그래서', '그냥', '좀', '근데', '그래가지고',
+      '뭐', '막', '되게', '이것', '저것', '그것', '여기', '저기'
+    ],
+    min_clauses: 3,
+    tolerance: 'zero',
+    hanja_required: true,
+    repetition_penalty: true,
+    mission_brief: '지시어 없이 논문 수준의 담화를 구성하세요.',
+    topic: '전문 담화 분석'
+  },
+
+  // ── 6_dynamic : Dynamic fallback for unknown 6x ──
+  '6_dynamic': {
+    difficulty_level: '6',
+    severity: 'thesis',
+    objective: 'Thesis Level — dynamic configuration',
+    target_grammar: [
+      '-(으)ㄹ진대',
+      '-거니와',
+      '-ㄴ/는다는 점에서',
+      '-에 기인하다',
+      '-를 감안하면',
+      '-는 바이다'
+    ],
+    forbidden_patterns: ['그리고', '그래서', '그냥', '좀', '근데', '그래가지고', '뭐', '막', '되게'],
+    min_clauses: 3,
+    tolerance: 'zero',
+    hanja_required: true,
+    repetition_penalty: true,
+    dynamic: true,
+    mission_brief: '논문 수준의 학술 논증을 구성하세요.',
+    topic: '학술 담화'
+  },
+
   // ── Default fallback ──────────────────────────────
   'default': {
     difficulty_level: '5A',
@@ -273,6 +343,7 @@ function resolveMissionConfig(unitId) {
   const levelMatch = unitId.match(/snu_(\w+)_/);
   if (levelMatch) {
     const level = levelMatch[1].toUpperCase();
+    if (level.startsWith('6')) return MISSIONS_CONFIG['6_dynamic'];
     if (MISSIONS_CONFIG[level]) return MISSIONS_CONFIG[level];
   }
 
@@ -353,11 +424,13 @@ NOTE: (one short explanation in French)
 
     const severity = missionCfg.severity || 'academic';
     const tolerance = missionCfg.tolerance || 'low';
+    const isThesisLevel = severity === 'thesis' || (missionCfg.difficulty_level || '').startsWith('6');
 
     const severityDesc = {
       morphological: '형태소 정확성 — 기본 연결어와 문법 구조 완성도',
       argumentative: '논증 흐름 — 사회적 맥락과 논리적 전개',
-      academic: '학문적 정밀도 — 한자어 활용, 논문 수준 표현'
+      academic: '학문적 정밀도 — 한자어 활용, 논문 수준 표현',
+      thesis: '논문 수준 완성도 — 지시어 금지, 한자어 필수, 반복 표현 제재'
     };
 
     const toleranceDesc = {
@@ -365,6 +438,41 @@ NOTE: (one short explanation in French)
       low: '낮음 — 모든 구조 오류 즉시 차단',
       zero: '제로 — 단 하나의 금지 표현도 허용하지 않음'
     };
+
+    const registerNote = isThesisLevel
+      ? '\n- 구어체 표현 일체 금지 (격식체 종결어미 의무: -ㅂ니다/습니다)'
+      : '';
+    const hanjaNote = missionCfg.hanja_required
+      ? '\n- 한자어 필수 사용 (고유어 대체 가능한 경우라도 한자어 우선)'
+      : '';
+    const repetitionNote = missionCfg.repetition_penalty
+      ? '\n- 동일 어휘/구조 반복 시 감점 (반복 패턴 자동 감지)'
+      : '';
+
+    const thesisModeBlock = isThesisLevel ? `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THESIS MODE [NIVEAU 6]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+논문급 담화 요구사항:
+1. 지시어 (이것/저것/그것/여기/저기) 완전 금지
+2. 격식체 종결어미만 허용 (-ㅂ니다/습니다/입니다)
+3. 한자어 우선 원칙 적용
+4. 동일 구조 연속 2회 이상 사용 시 즉시 차단
+5. 논리적 연결 필수: 각 절이 인과·대조·귀결 관계로 연결될 것
+
+권장 고급 연결어:
+• 나아가 / 더불어 / 이에 반해 / 이를 바탕으로
+• 결론적으로 / 종합하면 / 구체적으로는
+• ~에 기인하여 / ~로 귀결되어 / ~를 감안할 때
+
+논문 채점 기준:
+- 완전한 논리 구조 (서론-본론-결론) → +2점
+- 한자어 3개 이상 자연스럽게 사용 → +1점
+- 지시어 0회 → +1점
+- 목표 구조 전문적 사용 → +2점
+` : '';
+
 
     return `당신은 KoCo-Expert입니다.
 TOPIK ${missionCfg.difficulty_level} 전문 지도 교수.
@@ -402,8 +510,8 @@ ${(missionCfg.forbidden_patterns || []).map(p => `• "${p}"`).join('\n')}
 최소 요구사항:
 - 응답당 최소 ${missionCfg.min_clauses || 2}개의 복잡한 절
 - 매 응답에 목표 구조 최소 1개 사용
-- 한자어 우선 사용 (5A/5B)
-
+- 한자어 우선 사용 (5A/5B/6A/6B)${registerNote}${hanjaNote}${repetitionNote}
+${thesisModeBlock}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 BLOCKING PROTOCOL
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

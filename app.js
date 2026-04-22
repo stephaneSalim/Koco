@@ -481,6 +481,9 @@ function updateMode(newMode) {
     MissionMgr.activate(STATE.unitId);
   }
 
+  const missionBtn = document.getElementById('missionBtn');
+  if (missionBtn) missionBtn.classList.toggle('active', newMode === 'mission');
+
   conversationManager.clear();
   elements.conversation.innerHTML = '';
 
@@ -903,8 +906,33 @@ class MissionManager {
     this.override = null;
 
     const cfg = window.resolveMissionConfig ? window.resolveMissionConfig(unitId) : null;
+
+    const level = cfg?.difficulty_level || '';
+    if (level.startsWith('6') && cfg?.dynamic) {
+      this.showDynamicFallbackNotice(level);
+    }
+
     console.log('Mission activated:', cfg?.difficulty_level, '| severity:', cfg?.severity);
     return cfg;
+  }
+
+  showDynamicFallbackNotice(level) {
+    const notif = document.createElement('div');
+    notif.style.cssText = `
+      background: linear-gradient(135deg, #6a1b9a, #4a148c);
+      color: #e1bee7;
+      border-radius: 10px;
+      padding: 10px 14px;
+      margin: 6px 16px;
+      font-size: 13px;
+    `;
+    notif.innerHTML = `
+      <strong style="color:#ce93d8">⚡ Niveau ${level} détecté</strong><br>
+      Configuration dynamique activée — structures thèse chargées.<br>
+      <span style="color:#9c27b0">📎 Importez une page de cours pour calibration précise.</span>
+    `;
+    const conv = document.querySelector('.conversation');
+    if (conv) { conv.appendChild(notif); conv.scrollTop = conv.scrollHeight; }
   }
 
   deactivate() {
@@ -1013,6 +1041,63 @@ async function bootstrapMissionFromImage(pageContent) {
     <small>Structures cibles : ${(pageContent.structures || []).slice(0, 3).join(' / ')}</small>`;
   elements.conversation.appendChild(notif);
   elements.conversation.scrollTop = elements.conversation.scrollHeight;
+}
+
+function showMissionBriefing(cfg) {
+  if (!cfg) return;
+
+  const isThesis = cfg.severity === 'thesis' || (cfg.difficulty_level || '').startsWith('6');
+
+  const grammarChips = (cfg.target_grammar || [])
+    .map(g => `<span style="display:inline-block;background:#1a1a2e;color:#f7931e;border:1px solid #f7931e;border-radius:12px;padding:2px 10px;margin:2px;font-size:12px">${g}</span>`)
+    .join('');
+
+  const forbiddenChips = (cfg.forbidden_patterns || [])
+    .map(p => `<span style="display:inline-block;background:#2d1a1a;color:#ef5350;border:1px solid #ef5350;border-radius:12px;padding:2px 10px;margin:2px;font-size:12px;text-decoration:line-through">${p}</span>`)
+    .join('');
+
+  const thesisExtras = isThesis ? `
+    <div style="margin-top:10px;padding:8px 12px;background:#1a0533;border-left:3px solid #ce93d8;border-radius:0 8px 8px 0;font-size:12px;color:#e1bee7">
+      📜 <strong style="color:#ce93d8">THESIS MODE</strong> — 지시어 금지 · 격식체 의무 · 한자어 필수 · 반복 패턴 제재
+    </div>` : '';
+
+  const el = document.createElement('div');
+  el.style.cssText = `
+    background: linear-gradient(135deg, #0d1117, #161b22);
+    border: 1px solid #f7931e44;
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin: 6px 0;
+    font-size: 13px;
+    color: #cdd9e5;
+    line-height: 1.7;
+  `;
+  el.innerHTML = `
+    <div style="font-size:15px;font-weight:800;color:#f7931e;margin-bottom:8px">
+      🎯 미션 브리핑 [${cfg.difficulty_level}]
+    </div>
+    <div style="color:#8b949e;margin-bottom:6px">${cfg.mission_brief}</div>
+    <div style="margin-bottom:4px"><span style="color:#58a6ff">📐 목표 구조:</span><br>${grammarChips}</div>
+    <div style="margin-top:6px"><span style="color:#ef5350">🚫 금지 표현:</span><br>${forbiddenChips}</div>
+    <div style="margin-top:8px;color:#8b949e;font-size:12px">
+      최소 절 수: ${cfg.min_clauses || 2} | 허용 오차: ${cfg.tolerance || 'low'}
+    </div>
+    ${thesisExtras}
+  `;
+  elements.conversation.appendChild(el);
+  elements.conversation.scrollTop = elements.conversation.scrollHeight;
+}
+
+function toggleMissionMode() {
+  if (STATE.mode === 'mission') {
+    updateMode('freeChat');
+    elements.navTabs.forEach(t => t.classList.toggle('active', t.dataset.mode === 'freeChat'));
+  } else {
+    updateMode('mission');
+    elements.navTabs.forEach(t => t.classList.toggle('active', t.dataset.mode === 'mission'));
+    const cfg = window.resolveMissionConfig ? window.resolveMissionConfig(STATE.unitId) : null;
+    showMissionBriefing(cfg);
+  }
 }
 
 //#endregion
