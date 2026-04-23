@@ -487,15 +487,34 @@ SEVERITY: ${severityDesc[severity] || severity}
 TOLERANCE: ${toleranceDesc[tolerance] || tolerance}
 UNIT: ${unitTitle}
 MISSION: ${missionCfg.mission_brief}
-${context.missionOverride ? '⚡ CALIBRATION: Vision OCR Override Active' : ''}
+${missionCfg.mission_sheet ? '📋 CALIBRATION: Dynamic Mission Sheet Active' : context.missionOverride ? '⚡ CALIBRATION: Vision OCR Override Active' : ''}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-TARGET STRUCTURES (semantic evaluation required)
+MISSION SHEET — PROCTOR CONSTRAINTS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+GRAMMAR TARGETS (${(missionCfg.target_grammar || []).length}/5 max) :
 ${(missionCfg.target_grammar || []).map(g => `• ${g}`).join('\n')}
 
-평가 기준 (3단계):
+VOCABULARY TARGETS (${Math.min((missionCfg.vocabulary || []).length, 12)}/12 max) :
+${(missionCfg.vocabulary || []).slice(0, 12).join(', ')}
+
+${(missionCfg.weak_points || []).length > 0 ? `WEAK POINTS (priorité maximale — structures ratées) :
+${(missionCfg.weak_points || []).map(w =>
+  `• "${w.original}" → "${w.fixed}" [${w.interval_days || 1}j]`
+).join('\n')}
+→ Ces erreurs DOIVENT être ciblées en priorité.
+→ Si l'utilisateur reproduit ces erreurs → bloquer immédiatement.
+` : ''}
+
+RÔLE DU PROCTOR :
+1. Steer la conversation pour forcer l'usage des GRAMMAR TARGETS et VOCABULARY TARGETS
+2. Les WEAK POINTS ont priorité absolue
+3. Chaque réponse doit activer au moins 1 token de la Mission Sheet
+4. Si 2 échanges consécutifs sans activation → forcer explicitement :
+   "다음 표현을 사용하여 답하세요: [token]"
+
+평가 기준 (3단계) :
 - 형식적 사용 → STATUS: minor | "형식적 사용 — 더 깊이"
 - 적절한 사용 → STATUS: correct | 짧은 검증
 - 전문적 사용 → STATUS: correct | "탁월한 표현입니다"

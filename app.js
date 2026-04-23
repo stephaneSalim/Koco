@@ -1348,15 +1348,166 @@ function showMissionBriefing(cfg) {
   elements.conversation.scrollTop = elements.conversation.scrollHeight;
 }
 
-function toggleMissionMode() {
+async function generateMissionConstraints(unitId) {
+  console.log('Generating mission constraints for:', unitId);
+
+  const [lessonData, weakPoints, baseConfig] = await Promise.all([
+    window.getLessonConstraints ? window.getLessonConstraints(unitId) : Promise.resolve(null),
+    window.getWeakPoints ? window.getWeakPoints(window.kocoUserId, 3) : Promise.resolve([]),
+    Promise.resolve(window.resolveMissionConfig ? window.resolveMissionConfig(unitId) : {})
+  ]);
+
+  const weakStructures = weakPoints.map(w => w.note).filter(Boolean).slice(0, 2);
+  const lessonStructures = (lessonData?.structures || []).slice(0, 2);
+  const baseStructures = (baseConfig.target_grammar || []).slice(0, 3);
+
+  const grammarSheet = [...new Set([
+    ...weakStructures, ...lessonStructures, ...baseStructures
+  ])].slice(0, 5);
+
+  const lessonVocab = (lessonData?.vocabulary || []).slice(0, 8);
+  const weakVocab = weakPoints.map(w => w.fixed).filter(Boolean).slice(0, 4);
+  const vocabSheet = [...new Set([...lessonVocab, ...weakVocab])].slice(0, 12);
+
+  const missionSheet = {
+    grammar: grammarSheet,
+    vocabulary: vocabSheet,
+    weak_points: weakPoints,
+    base_config: baseConfig,
+    unit_id: unitId,
+    generated_at: new Date().toISOString(),
+    sources: {
+      weak_structures: weakStructures.length,
+      lesson_structures: lessonStructures.length,
+      base_structures: baseStructures.length,
+      lesson_vocab: lessonVocab.length,
+      weak_vocab: weakVocab.length
+    }
+  };
+
+  console.log('Mission Sheet generated:', {
+    grammar: grammarSheet,
+    vocab_count: vocabSheet.length,
+    sources: missionSheet.sources
+  });
+
+  return missionSheet;
+}
+window.generateMissionConstraints = generateMissionConstraints;
+
+function showMissionSheet(sheet) {
+  const cfg = sheet.base_config;
+  const isThesis = cfg.severity === 'thesis';
+  const hasWeakPoints = sheet.weak_points?.length > 0;
+
+  const container = document.createElement('div');
+  container.className = 'mission-sheet';
+  container.style.cssText = `
+    background: ${isThesis
+      ? 'linear-gradient(135deg, #1a1a2e, #16213e)'
+      : 'linear-gradient(135deg, #ff6b35, #f7931e)'};
+    border-radius: 16px;
+    padding: 20px;
+    margin: 12px 0;
+    color: white;
+  `;
+
+  container.innerHTML = `
+    <div style="font-size:17px;font-weight:700;margin-bottom:4px">
+      🎯 Mission Sheet [${cfg.difficulty_level || ''}]
+    </div>
+    <div style="font-size:13px;opacity:0.8;margin-bottom:16px">${cfg.mission_brief || ''}</div>
+
+    <div style="margin-bottom:14px">
+      <div style="font-size:11px;opacity:0.7;text-transform:uppercase;margin-bottom:6px">
+        구조 목표 (${sheet.grammar.length}/5)
+      </div>
+      ${sheet.grammar.map(g => {
+        const isWeak = sheet.weak_points?.some(w => w.note === g);
+        return `<span style="display:inline-block;background:${
+          isWeak ? 'rgba(255,59,48,0.3)' : 'rgba(255,255,255,0.15)'
+        };border-radius:10px;padding:4px 10px;font-size:12px;margin:2px;${
+          isWeak ? 'border:1px solid rgba(255,59,48,0.5)' : ''
+        }">${isWeak ? '⚠️ ' : ''}${g}</span>`;
+      }).join('')}
+    </div>
+
+    ${sheet.vocabulary.length > 0 ? `
+    <div style="margin-bottom:14px">
+      <div style="font-size:11px;opacity:0.7;text-transform:uppercase;margin-bottom:6px">
+        어휘 (${sheet.vocabulary.length}/12)
+      </div>
+      <div style="font-size:12px;opacity:0.85;line-height:1.6">
+        ${sheet.vocabulary.slice(0, 12).join(' · ')}
+      </div>
+    </div>` : ''}
+
+    ${hasWeakPoints ? `
+    <div style="background:rgba(255,59,48,0.2);border-radius:10px;padding:10px 12px;
+      margin-bottom:14px;border-left:3px solid rgba(255,59,48,0.6)">
+      <div style="font-size:11px;opacity:0.8;margin-bottom:4px">⚠️ POINTS FAIBLES DÉTECTÉS</div>
+      ${sheet.weak_points.map(w => `
+        <div style="font-size:12px;margin:2px 0">
+          <span style="opacity:0.7">${w.original || ''}</span>
+          <span style="opacity:0.5"> → </span>
+          <span>${w.fixed || ''}</span>
+          <span style="font-size:10px;opacity:0.6;margin-left:4px">(${w.interval_days || 1}j)</span>
+        </div>`).join('')}
+    </div>` : ''}
+
+    <div style="margin-bottom:14px">
+      <div style="font-size:11px;opacity:0.7;text-transform:uppercase;margin-bottom:6px">금지 표현</div>
+      ${(cfg.forbidden_patterns || []).map(p =>
+        `<span style="display:inline-block;background:rgba(0,0,0,0.25);border-radius:10px;
+          padding:3px 8px;font-size:12px;margin:2px;text-decoration:line-through;opacity:0.8">${p}</span>`
+      ).join('')}
+    </div>
+
+    <div style="font-size:10px;opacity:0.5;text-align:right">
+      Sources: ${sheet.sources.weak_structures} weak ·
+      ${sheet.sources.lesson_structures} page ·
+      ${sheet.sources.base_structures} config
+    </div>
+  `;
+
+  elements.conversation.appendChild(container);
+  elements.conversation.scrollTop = elements.conversation.scrollHeight;
+}
+
+async function toggleMissionMode() {
   if (STATE.mode === 'mission') {
     updateMode('freeChat');
     elements.navTabs.forEach(t => t.classList.toggle('active', t.dataset.mode === 'freeChat'));
-  } else {
+    return;
+  }
+
+  const btn = document.getElementById('missionBtn');
+  if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
+
+  try {
+    const missionSheet = await generateMissionConstraints(STATE.unitId);
+
+    updateMode('mission');
+    elements.navTabs.forEach(t => t.classList.toggle('active', t.dataset.mode === 'mission'));
+
+    MissionMgr.override = {
+      ...missionSheet.base_config,
+      target_grammar: missionSheet.grammar,
+      vocabulary: missionSheet.vocabulary,
+      weak_points: missionSheet.weak_points,
+      mission_sheet: true
+    };
+
+    showMissionSheet(missionSheet);
+
+  } catch (e) {
+    console.error('generateMissionConstraints error:', e);
     updateMode('mission');
     elements.navTabs.forEach(t => t.classList.toggle('active', t.dataset.mode === 'mission'));
     const cfg = window.resolveMissionConfig ? window.resolveMissionConfig(STATE.unitId) : null;
     showMissionBriefing(cfg);
+  } finally {
+    if (btn) { btn.textContent = '🎯'; btn.disabled = false; }
   }
 }
 

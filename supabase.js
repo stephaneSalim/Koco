@@ -291,6 +291,42 @@ async function updateReviewItem(itemId, grade) {
 }
 window.updateReviewItem = updateReviewItem;
 
+async function getWeakPoints(userId, limit = 3) {
+  const { data, error } = await window.supabaseClient
+    .from('review_items')
+    .select('original, fixed, note, interval_days')
+    .eq('user_id', userId)
+    .order('interval_days', { ascending: true })
+    .limit(limit);
+
+  if (error) {
+    console.error('getWeakPoints error:', JSON.stringify(error));
+    return [];
+  }
+
+  console.log('Weak points fetched:', data?.length,
+    '| lowest interval_days:', data?.[0]?.interval_days);
+  return data || [];
+}
+window.getWeakPoints = getWeakPoints;
+
+async function getLessonConstraints(unitId) {
+  const { data, error } = await window.supabaseClient
+    .from('lesson_content')
+    .select('vocabulary, structures, theme, level')
+    .eq('unit_id', unitId)
+    .eq('user_id', window.kocoUserId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('getLessonConstraints error:', JSON.stringify(error));
+    return null;
+  }
+
+  return data || null;
+}
+window.getLessonConstraints = getLessonConstraints;
+
 async function getAllSNUUnits() {
   const { data, error } = await window.supabaseClient
     .from('snu_units')
