@@ -369,9 +369,9 @@ async function getDataHealth(unitId) {
   const wordCount = (vocabCount * 5) + (structuresCount * 8) + themeWords;
 
   let status, label, color, dot;
-  if (wordCount < 200) {
+  if (wordCount < 100) {
     status = 'red'; label = wordCount === 0 ? 'Vide' : 'Insuffisant'; color = '#e53935'; dot = '🔴';
-  } else if (wordCount < 500) {
+  } else if (wordCount < 300) {
     status = 'orange'; label = 'Partiel'; color = '#f7931e'; dot = '🟠';
   } else {
     status = 'green'; label = 'Optimal'; color = '#00a884'; dot = '🟢';

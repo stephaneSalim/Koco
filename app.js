@@ -1147,7 +1147,7 @@ async function updateContextGuard(unitId) {
     if (btnMission) {
       btnMission.disabled = true;
       btnMission.style.opacity = '0.4';
-      btnMission.title = '⚠️ Contenu insuffisant (min. 200 mots requis)';
+      btnMission.title = '⚠️ Contenu insuffisant (min. 100 mots requis)';
     }
     showContextWarning(health);
   } else if (health.status === 'orange') {
@@ -1196,7 +1196,7 @@ function showContextWarning(health) {
     ? 'rgba(229,57,53,0.08)'
     : 'rgba(247,147,30,0.08)';
   warning.textContent = health.status === 'red'
-    ? "⚠️ Contenu insuffisant pour lancer l'IA (min. 200 mots requis). Ajoutez une photo 📸"
+    ? "⚠️ Contenu insuffisant pour lancer l'IA (min. 100 mots requis). Ajoutez une photo 📸"
     : '⚠️ Contexte limité. Ajoutez une photo pour améliorer la précision de l\'IA.';
   warning.style.display = 'block';
 }
@@ -2412,6 +2412,42 @@ function addSystemMessage(text) {
   return el;
 }
 
+async function mergeOcrContent(unitId, newCtx) {
+  const existing = window.getLessonContent ? await window.getLessonContent(unitId) : null;
+  if (!existing) return newCtx;
+
+  const fp = str => (str || '').slice(0, 50);
+
+  const mergedVocab = [...(existing.vocabulary || [])];
+  for (const item of (newCtx.vocabulary || [])) {
+    if (!mergedVocab.some(v => fp(v) === fp(item))) mergedVocab.push(item);
+  }
+
+  const mergedStructures = [...(existing.structures || [])];
+  for (const item of (newCtx.structures || [])) {
+    if (!mergedStructures.some(s => fp(s) === fp(item))) mergedStructures.push(item);
+  }
+
+  const existingTheme = existing.theme || '';
+  const newTheme = newCtx.theme || '';
+  const theme = existingTheme && newTheme && !existingTheme.includes(newTheme.slice(0, 50))
+    ? `${existingTheme} ${newTheme}`
+    : existingTheme || newTheme;
+
+  const mergedStarters = [...(existing.conversation_starters || [])];
+  for (const item of (newCtx.conversation_starters || [])) {
+    if (!mergedStarters.some(s => fp(s) === fp(item))) mergedStarters.push(item);
+  }
+
+  return {
+    vocabulary: mergedVocab,
+    structures: mergedStructures,
+    theme,
+    level: newCtx.level || existing.level || '',
+    conversation_starters: mergedStarters
+  };
+}
+
 function initPhotoInput() {
   elements.photoInputBtn.addEventListener('click', () => {
     _pendingPhotoUnitId = null;
@@ -2447,15 +2483,18 @@ function initPhotoInput() {
         if (!resp.ok) throw new Error('analyze-image failed');
         const ctx = await resp.json();
 
-        // Save to Supabase
+        // Merge with existing content (append, no duplicates)
+        const merged = await mergeOcrContent(targetUnitId, ctx);
+
+        // Save merged content to Supabase
         if (window.saveLessonContent) {
-          await window.saveLessonContent(targetUnitId, ctx);
+          await window.saveLessonContent(targetUnitId, merged);
         }
 
         // If for current unit, update pageContext
         if (targetUnitId === STATE.unitId) {
-          STATE.pageContext = ctx;
-          bootstrapMissionFromImage(ctx);
+          STATE.pageContext = merged;
+          bootstrapMissionFromImage(merged);
         }
 
         // Refresh health after OCR
