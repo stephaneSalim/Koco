@@ -1797,6 +1797,45 @@ input, button, textarea, select {
   .mission-btn { width: 42px; height: 42px; font-size: 20px; }
 }
 
+/* ── Mode Switch (Tutorat / Examen) ─────────── */
+.mode-switch-container {
+  display: flex;
+  background: #f0f0f0;
+  border-radius: 20px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.mode-switch-btn {
+  border: none;
+  border-radius: 17px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  background: transparent;
+  color: #8696A0;
+  transition: all 0.2s;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mode-switch-btn.active {
+  background: white;
+  color: #1a1a1a;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+
+@keyframes notifFadeIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(-8px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+@keyframes notifFadeOut {
+  from { opacity: 1; transform: translateX(-50%) translateY(0); }
+  to   { opacity: 0; transform: translateX(-50%) translateY(-8px); }
+}
+
 /* ── Scenario Loader ─────────────────────────── */
 .scenario-loader-anim {
   display: flex;

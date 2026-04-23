@@ -17,7 +17,10 @@
       </button>
       <div class="header-actions">
         <button class="tts-toggle" id="ttsToggleBtn" type="button" title="TTS on/off">🔊</button>
-        <button class="mission-btn" id="missionBtn" type="button" title="Mode Mission" onclick="toggleMissionMode()">🎯</button>
+        <div class="mode-switch-container" id="modeSwitchContainer">
+          <button class="mode-switch-btn active" id="btnSpeak" onclick="setMode('speak')" title="Mode Tutorat — Coach flexible">💬 Tutorat</button>
+          <button class="mode-switch-btn" id="btnMission" onclick="setMode('mission')" title="Mode Examen — Proctor strict">🎯 Examen</button>
+        </div>
       </div>
       <button id="endSessionBtn" class="header__end-session" title="Terminer la séance" type="button">⏹</button>
     </header>

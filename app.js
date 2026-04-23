@@ -56,7 +56,8 @@ const STATE = {
     exchangeCount: 0,
     totalUserWords: 0,
     totalUserResponses: 0,
-    structureHits: new Set()
+    structureHits: new Set(),
+    goldenSentence: null
   },
   gmsSentences: [],
   isSpeaking: false,
@@ -372,8 +373,25 @@ function parseCorrection(fullText) {
       status: get('STATUS').toLowerCase(),
       original: get('ORIGINAL'),
       fixed: get('FIXED'),
-      note: get('NOTE')
+      note: get('NOTE'),
+      target_used: get('TARGET_USED') || '',
+      anki_ready: get('ANKI_READY') === 'true'
     }
+  };
+}
+
+function parseGoldenSentence(text) {
+  const match = text.match(/\[GOLDEN_SENTENCE\]([\s\S]*?)\[\/GOLDEN_SENTENCE\]/);
+  if (!match) return null;
+  const block = match[1];
+  const get = (field) => {
+    const m = block.match(new RegExp(field + ':\\s*(.+)'));
+    return m ? m[1].trim() : '';
+  };
+  return {
+    sentence: get('SENTENCE'),
+    why: get('WHY'),
+    structures_detected: get('STRUCTURES_DETECTED')
   };
 }
 
@@ -547,8 +565,8 @@ function updateMode(newMode) {
     MissionMgr.activate(STATE.unitId);
   }
 
-  const missionBtn = document.getElementById('missionBtn');
-  if (missionBtn) missionBtn.classList.toggle('active', newMode === 'mission');
+  document.getElementById('btnMission')?.classList.toggle('active', newMode === 'mission');
+  document.getElementById('btnSpeak')?.classList.toggle('active', newMode !== 'mission');
 
   conversationManager.clear();
   elements.conversation.innerHTML = '';
@@ -734,6 +752,12 @@ async function processUserInput(text) {
         if (drillSession) showMissionDrills(drillSession);
         MissionMgr.deactivate();
       }
+    }
+
+    // Golden Sentence detection (Speak mode)
+    const goldenSentence = parseGoldenSentence(result.response);
+    if (goldenSentence?.sentence) {
+      STATE.session.goldenSentence = goldenSentence;
     }
 
     if (!AudioGate.isMuted()) {
@@ -1475,6 +1499,58 @@ function showMissionSheet(sheet) {
   elements.conversation.scrollTop = elements.conversation.scrollHeight;
 }
 
+function setMode(mode) {
+  document.getElementById('btnSpeak')?.classList.toggle('active', mode === 'speak');
+  document.getElementById('btnMission')?.classList.toggle('active', mode === 'mission');
+
+  if (mode === 'speak') {
+    if (STATE.mode === 'mission') {
+      updateMode('freeChat');
+      elements.navTabs.forEach(t => t.classList.toggle('active', t.dataset.mode === 'freeChat'));
+    }
+    STATE.mode = 'speak';
+    showModeNotification('💬', 'Mode Tutorat', 'Coach flexible — correction douce');
+  } else if (mode === 'mission') {
+    toggleMissionMode();
+    showModeNotification('🎯', 'Mode Examen', 'Proctor strict — tolérance zéro');
+  }
+
+  console.log('Mode switched to:', mode);
+}
+
+function showModeNotification(icon, title, subtitle) {
+  const notif = document.createElement('div');
+  notif.style.cssText = `
+    position: fixed;
+    top: 70px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.75);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-size: 13px;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    backdrop-filter: blur(8px);
+    animation: notifFadeIn 0.3s ease;
+  `;
+  notif.innerHTML = `
+    <span style="font-size:16px">${icon}</span>
+    <div>
+      <div style="font-weight:700">${title}</div>
+      <div style="font-size:11px;opacity:0.8">${subtitle}</div>
+    </div>
+  `;
+  document.body.appendChild(notif);
+  setTimeout(() => {
+    notif.style.animation = 'notifFadeOut 0.3s ease forwards';
+    setTimeout(() => notif.remove(), 300);
+  }, 2000);
+}
+
 async function showScenarioChoice(missionSheet) {
   const loaderEl = document.createElement('div');
   loaderEl.id = 'scenarioLoader';
@@ -1655,7 +1731,7 @@ async function toggleMissionMode() {
     return;
   }
 
-  const btn = document.getElementById('missionBtn');
+  const btn = document.getElementById('btnMission');
   if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
 
   try {
@@ -1682,7 +1758,7 @@ async function toggleMissionMode() {
     const cfg = window.resolveMissionConfig ? window.resolveMissionConfig(STATE.unitId) : null;
     showMissionBriefing(cfg);
   } finally {
-    if (btn) { btn.textContent = '🎯'; btn.disabled = false; }
+    if (btn) { btn.textContent = '🎯 Examen'; btn.disabled = false; }
   }
 }
 
@@ -1957,8 +2033,97 @@ function openSessionSummary() {
     runDistiller(majorCorrections, STATE.unitId, window.kocoUserId);
   }
 
+  // Session Report (Speak mode)
+  if (STATE.mode === 'speak' || STATE.mode === 'freeChat') {
+    showSessionReport(corrections, STATE.session.goldenSentence || null);
+  }
+
   elements.sessionSummaryModal.classList.remove('hidden');
 }
+
+function showSessionReport(corrections, goldenSentence) {
+  if (!corrections?.length && !goldenSentence) return;
+
+  const total = corrections?.length || 0;
+  const correct = corrections?.filter(c => c.status === 'correct').length || 0;
+  const mastery = total > 0 ? Math.round((correct / total) * 100) : 0;
+
+  const container = document.createElement('div');
+  container.style.cssText = `
+    background: white;
+    border-radius: 16px;
+    padding: 20px;
+    margin-top: 16px;
+    border: 2px solid #667eea;
+    box-shadow: 0 4px 20px rgba(102,126,234,0.1);
+  `;
+
+  const strengthItems = (corrections || []).filter(c => c.status === 'correct').slice(0, 3)
+    .map(c => `<div style="font-size:12px;color:#1a1a1a;margin:2px 0">• ${c.original}</div>`).join('');
+  const growthItems = (corrections || []).filter(c => c.status === 'major').slice(0, 3)
+    .map(c => `<div style="font-size:12px;color:#1a1a1a;margin:2px 0">• ${c.original} → ${c.fixed}</div>`).join('');
+
+  container.innerHTML = `
+    <div style="font-size:17px;font-weight:700;color:#667eea;margin-bottom:16px">📊 Session Report</div>
+
+    <div style="background:#f0f3ff;border-radius:12px;padding:16px;margin-bottom:14px;text-align:center">
+      <div style="font-size:36px;font-weight:900;color:#667eea">${mastery}%</div>
+      <div style="font-size:13px;color:#8696A0">Mastery Score</div>
+      <div style="background:#e5e5e5;border-radius:4px;height:6px;margin-top:10px;overflow:hidden">
+        <div style="width:${mastery}%;height:100%;background:linear-gradient(90deg,#667eea,#764ba2);border-radius:4px;transition:width 1s ease"></div>
+      </div>
+    </div>
+
+    ${goldenSentence?.sentence ? `
+    <div style="background:linear-gradient(135deg,#fffbf0,#fff8e8);border:2px solid #f7931e;border-radius:12px;padding:16px;margin-bottom:14px">
+      <div style="font-size:11px;font-weight:700;color:#f7931e;margin-bottom:8px;text-transform:uppercase">⭐ Golden Sentence</div>
+      <div style="font-size:15px;color:#1a1a1a;font-weight:500;line-height:1.5;margin-bottom:8px">"${goldenSentence.sentence}"</div>
+      <div style="font-size:12px;color:#8696A0">${goldenSentence.why}</div>
+      ${goldenSentence.structures_detected ? `<div style="margin-top:8px"><span style="background:#f0f3ff;color:#667eea;border-radius:8px;padding:3px 8px;font-size:11px;font-weight:600">${goldenSentence.structures_detected}</span></div>` : ''}
+    </div>` : ''}
+
+    <div style="margin-bottom:14px">
+      <div style="font-size:12px;font-weight:700;color:#1a1a1a;margin-bottom:8px">🔍 Linguistic Insights</div>
+      ${strengthItems ? `<div style="background:#f0fff4;border-radius:8px;padding:10px;margin-bottom:8px"><div style="font-size:11px;color:#00a884;font-weight:700;margin-bottom:4px">✅ Strengths</div>${strengthItems}</div>` : ''}
+      ${growthItems ? `<div style="background:#fff5f5;border-radius:8px;padding:10px"><div style="font-size:11px;color:#e53935;font-weight:700;margin-bottom:4px">📈 Growth Areas</div>${growthItems}</div>` : ''}
+    </div>
+
+    <div style="border-top:1px solid #f0f0f0;padding-top:12px;display:flex;gap:8px">
+      <button onclick="exportAnkiData()" style="flex:1;background:#f8f8f8;border:1px solid #e5e5e5;border-radius:10px;padding:10px;font-size:12px;cursor:pointer;color:#8696A0">
+        📤 Anki (bientôt)
+      </button>
+      <button onclick="startNewSession()" style="flex:2;background:#667eea;color:white;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:600;cursor:pointer">
+        새 세션 시작 →
+      </button>
+    </div>
+  `;
+
+  const summarySheet = document.querySelector('.summary-sheet');
+  if (summarySheet) summarySheet.appendChild(container);
+}
+
+function startNewSession() {
+  closeSessionSummary();
+  resetSession();
+}
+
+function exportAnkiData() {
+  const ankiItems = STATE.sessionCorrections.filter(c => c.anki_ready);
+  if (!ankiItems.length) {
+    alert('이 세션에는 Anki 데이터가 없습니다.');
+    return;
+  }
+  const tsv = ankiItems.map(c => `"${c.original}"\t"${c.fixed}"\t"${c.note}"`).join('\n');
+  const blob = new Blob([tsv], { type: 'text/tab-separated-values' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `koco_anki_${new Date().toISOString().slice(0, 10)}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+  console.log('Anki export:', ankiItems.length, 'cards');
+}
+window.exportAnkiData = exportAnkiData;
 
 function closeSessionSummary() {
   elements.sessionSummaryModal.classList.add('hidden');
@@ -1974,6 +2139,7 @@ function resetSession() {
   STATE.session.totalUserWords = 0;
   STATE.session.totalUserResponses = 0;
   STATE.session.structureHits = new Set();
+  STATE.session.goldenSentence = null;
   updateFluencyIndicator();
 
   const unit = STATE.activeUnit;
