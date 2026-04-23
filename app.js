@@ -1061,15 +1061,42 @@ async function buildUnitSelectorList() {
       themeEl.className = 'unit-theme-icon';
       themeEl.textContent = getThemeIcon(row);
 
+      const dotEl = document.createElement('div');
+      dotEl.className = 'unit-health-dot loading';
+      dotEl.id = `health-dot-${unit.id}`;
+      dotEl.title = 'Chargement...';
+
       itemEl.appendChild(numEl);
       itemEl.appendChild(infoEl);
-      itemEl.appendChild(themeEl);
+      itemEl.appendChild(dotEl);
       unitsContainer.appendChild(itemEl);
     });
 
     groupEl.appendChild(unitsContainer);
     list.appendChild(groupEl);
   });
+
+  // Passe 2 : charge les dots en arrière-plan
+  if (window.getDataHealthCached) {
+    allUnits.forEach(async row => {
+      const unit = normalizeSNUUnit(row);
+      const health = await window.getDataHealthCached(unit.id);
+      const dot = document.getElementById(`health-dot-${unit.id}`);
+      if (!dot) return;
+      dot.style.background = health.color;
+      dot.classList.remove('loading');
+      dot.title = `${health.label} — ${health.wordCount} mots estimés`;
+      if (health.wordCount === 0) {
+        const titleEl = dot.closest('.unit-item')?.querySelector('.unit-title-ko');
+        if (titleEl && !titleEl.querySelector('.unit-empty-label')) {
+          const empty = document.createElement('span');
+          empty.className = 'unit-empty-label';
+          empty.textContent = ' (Vide)';
+          titleEl.appendChild(empty);
+        }
+      }
+    });
+  }
 }
 
 function openUnitSelector() {
@@ -1105,7 +1132,78 @@ function selectUnit(unitId, unitObj) {
   }
 
   updateHeader();
+  updateContextGuard(STATE.unitId);
   nextQuestion();
+}
+
+async function updateContextGuard(unitId) {
+  if (!window.getDataHealthCached) return;
+  const health = await window.getDataHealthCached(unitId);
+
+  updateHeaderHealthIndicator(health);
+
+  const btnMission = document.getElementById('btnMission');
+  if (health.status === 'red') {
+    if (btnMission) {
+      btnMission.disabled = true;
+      btnMission.style.opacity = '0.4';
+      btnMission.title = '⚠️ Contenu insuffisant (min. 200 mots requis)';
+    }
+    showContextWarning(health);
+  } else if (health.status === 'orange') {
+    if (btnMission) {
+      btnMission.disabled = false;
+      btnMission.style.opacity = '1';
+    }
+    showContextWarning(health);
+  } else {
+    if (btnMission) {
+      btnMission.disabled = false;
+      btnMission.style.opacity = '1';
+      btnMission.title = 'Mode Examen';
+    }
+    hideContextWarning();
+  }
+
+  return health;
+}
+window.updateContextGuard = updateContextGuard;
+
+function updateHeaderHealthIndicator(health) {
+  let indicator = document.getElementById('headerHealthDot');
+  if (!indicator) {
+    indicator = document.createElement('span');
+    indicator.id = 'headerHealthDot';
+    indicator.className = 'header-health-dot';
+    document.getElementById('headerUnitTitle')?.appendChild(indicator);
+  }
+  indicator.style.background = health.color;
+  indicator.title = `Contexte : ${health.label}`;
+}
+
+function showContextWarning(health) {
+  const id = 'contextWarning-header';
+  let warning = document.getElementById(id);
+  if (!warning) {
+    warning = document.createElement('div');
+    warning.id = id;
+    warning.className = 'context-warning-banner';
+    document.getElementById('appHeader')?.insertAdjacentElement('afterend', warning);
+  }
+  warning.style.borderBottomColor = health.color + '30';
+  warning.style.color = health.color;
+  warning.style.background = health.status === 'red'
+    ? 'rgba(229,57,53,0.08)'
+    : 'rgba(247,147,30,0.08)';
+  warning.textContent = health.status === 'red'
+    ? "⚠️ Contenu insuffisant pour lancer l'IA (min. 200 mots requis). Ajoutez une photo 📸"
+    : '⚠️ Contexte limité. Ajoutez une photo pour améliorer la précision de l\'IA.';
+  warning.style.display = 'block';
+}
+
+function hideContextWarning() {
+  const el = document.getElementById('contextWarning-header');
+  if (el) el.style.display = 'none';
 }
 
 //#endregion
@@ -2360,6 +2458,22 @@ function initPhotoInput() {
           bootstrapMissionFromImage(ctx);
         }
 
+        // Refresh health after OCR
+        if (window.invalidateHealthCache) window.invalidateHealthCache(targetUnitId);
+        if (window.getDataHealth) {
+          window.getDataHealth(targetUnitId).then(health => {
+            const dot = document.getElementById(`health-dot-${targetUnitId}`);
+            if (dot) {
+              dot.style.background = health.color;
+              dot.classList.remove('loading');
+              dot.title = `${health.label} — ${health.wordCount} mots estimés`;
+              dot.style.transform = 'scale(1.5)';
+              setTimeout(() => { dot.style.transform = 'scale(1)'; }, 300);
+            }
+            if (targetUnitId === STATE.unitId) updateContextGuard(targetUnitId);
+          });
+        }
+
         // Update photo button in modal if still open
         const photoBtn = document.querySelector(`.unit-selector-item__photo[data-unit-id="${targetUnitId}"]`);
         if (photoBtn) photoBtn.classList.add('has-content');
@@ -2514,6 +2628,7 @@ function initApp() {
           });
         }
         updateHeader();
+        updateContextGuard(STATE.unitId);
       }
     });
   }

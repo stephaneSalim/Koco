@@ -350,3 +350,49 @@ async function getSNUUnit(level, unitNumber, lessonNumber) {
   return data || null;
 }
 window.getSNUUnit = getSNUUnit;
+
+async function getDataHealth(unitId) {
+  const { data, error } = await window.supabaseClient
+    .from('lesson_content')
+    .select('vocabulary, structures, theme')
+    .eq('unit_id', unitId)
+    .eq('user_id', window.kocoUserId)
+    .maybeSingle();
+
+  if (error || !data) {
+    return { status: 'red', wordCount: 0, label: 'Vide', color: '#e53935', dot: '🔴' };
+  }
+
+  const vocabCount = (data.vocabulary || []).length;
+  const structuresCount = (data.structures || []).length;
+  const themeWords = (data.theme || '').split(' ').length;
+  const wordCount = (vocabCount * 5) + (structuresCount * 8) + themeWords;
+
+  let status, label, color, dot;
+  if (wordCount < 200) {
+    status = 'red'; label = wordCount === 0 ? 'Vide' : 'Insuffisant'; color = '#e53935'; dot = '🔴';
+  } else if (wordCount < 500) {
+    status = 'orange'; label = 'Partiel'; color = '#f7931e'; dot = '🟠';
+  } else {
+    status = 'green'; label = 'Optimal'; color = '#00a884'; dot = '🟢';
+  }
+
+  return { status, wordCount, label, color, dot };
+}
+window.getDataHealth = getDataHealth;
+
+const healthCache = {};
+
+async function getDataHealthCached(unitId) {
+  if (healthCache[unitId]) return healthCache[unitId];
+  const health = await getDataHealth(unitId);
+  healthCache[unitId] = health;
+  return health;
+}
+window.getDataHealthCached = getDataHealthCached;
+
+function invalidateHealthCache(unitId) {
+  delete healthCache[unitId];
+  console.log('Health cache invalidated for:', unitId);
+}
+window.invalidateHealthCache = invalidateHealthCache;

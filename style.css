@@ -2967,3 +2967,62 @@ input:focus-visible {
 .report-btn-primary { flex: 2; padding: 14px; border: none; background: #4a90e2; color: white; border-radius: 12px; font-size: 14px; font-weight: 700; cursor: pointer; }
 .report-btn-primary:active { background: #357abd; }
 .report-btn-secondary:active { background: #f5f5f5; }
+
+/* ── Context Guard & Health Dots ──────────────── */
+.unit-health-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: all 0.3s ease;
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.8);
+}
+
+.unit-health-dot.loading {
+  background: #e5e5e5;
+  animation: healthPulse 1.5s infinite ease-in-out;
+}
+
+@keyframes healthPulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+.unit-empty-label {
+  font-size: 10px;
+  color: #e53935;
+  font-weight: 600;
+  font-style: italic;
+}
+
+/* Header health dot */
+.header-health-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-left: 4px;
+  vertical-align: middle;
+  transition: background 0.3s ease;
+  flex-shrink: 0;
+}
+
+/* Context warning banner */
+.context-warning-banner {
+  display: none;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  padding: 6px 16px;
+  border-bottom: 1px solid transparent;
+  transition: all 0.3s ease;
+  line-height: 1.4;
+}
+
+/* Disabled mode button */
+.mode-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.mode-btn:disabled:active::after { opacity: 0; }
