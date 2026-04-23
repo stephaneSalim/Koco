@@ -692,6 +692,7 @@ async function processUserInput(text) {
   context.unit = STATE.activeUnit || context.unit;
   context.unitId = STATE.unitId;
   context.missionOverride = MissionMgr.getContext();
+  context.selectedScenario = MissionMgr.selectedScenario || null;
   const systemPrompt = generateSystemPrompt(context, STATE.mode, STATE.gmsSentences, STATE.pageContext);
 
   STATE.isProcessing = true;
@@ -1474,6 +1475,179 @@ function showMissionSheet(sheet) {
   elements.conversation.scrollTop = elements.conversation.scrollHeight;
 }
 
+async function showScenarioChoice(missionSheet) {
+  const loaderEl = document.createElement('div');
+  loaderEl.id = 'scenarioLoader';
+  loaderEl.style.cssText = `
+    background: rgba(102,126,234,0.08);
+    border-radius: 16px;
+    padding: 20px;
+    margin: 12px 0;
+    text-align: center;
+    color: #667eea;
+  `;
+  loaderEl.innerHTML = `
+    <div class="scenario-loader-anim">
+      <div class="scenario-dot"></div>
+      <div class="scenario-dot"></div>
+      <div class="scenario-dot"></div>
+    </div>
+    <div style="font-size:13px;margin-top:10px;opacity:0.8">시나리오 생성 중...</div>
+  `;
+  elements.conversation.appendChild(loaderEl);
+  loaderEl.scrollIntoView({ behavior: 'smooth' });
+
+  try {
+    const resp = await fetch('/api/scenarios', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        missionSheet,
+        unitTitle: STATE.activeUnit?.title || ''
+      })
+    });
+
+    const { scenarios } = await resp.json();
+    loaderEl.remove();
+    if (!scenarios?.length) return;
+
+    STATE.currentScenarios = scenarios;
+
+    const container = document.createElement('div');
+    container.id = 'scenarioChoice';
+    container.style.cssText = 'margin: 12px 0; display: flex; flex-direction: column; gap: 10px;';
+    container.innerHTML = `
+      <div style="font-size:14px;color:#8696A0;padding:0 4px;margin-bottom:4px">
+        💬 시나리오를 선택하거나 직접 주제를 입력하세요
+      </div>
+      ${scenarios.map(s => `
+        <div class="scenario-card" data-scenario="${s.number}" onclick="selectScenario(${s.number})"
+          style="background:white;border:2px solid #e5e5e5;border-radius:14px;padding:14px 16px;cursor:pointer;transition:all 0.2s;-webkit-tap-highlight-color:transparent">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="background:#667eea;color:white;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0">${s.number}</span>
+            <div style="flex:1">
+              <div style="font-weight:600;font-size:15px;color:#1a1a1a;margin-bottom:3px">${s.title}</div>
+              <div style="font-size:12px;color:#8696A0">${(s.vocab_preview || []).join(', ')}</div>
+            </div>
+            <span style="color:#8696A0;font-size:18px">›</span>
+          </div>
+        </div>
+      `).join('')}
+      <div style="text-align:center;font-size:12px;color:#8696A0;padding:4px">또는 직접 주제 입력 가능</div>
+    `;
+
+    elements.conversation.appendChild(container);
+    container.scrollIntoView({ behavior: 'smooth' });
+    STATE.scenarioDetectionActive = true;
+
+  } catch (e) {
+    loaderEl.remove();
+    console.error('showScenarioChoice error:', e);
+  }
+}
+
+function activateScenarioDetection() {
+  STATE.scenarioDetectionActive = true;
+}
+
+function selectScenario(number) {
+  const scenario = STATE.currentScenarios?.find(s => s.number === number);
+  if (!scenario) return;
+
+  STATE.scenarioDetectionActive = false;
+  document.getElementById('scenarioChoice')?.remove();
+
+  showScenarioLoadingAnimation(scenario);
+  STATE.selectedScenario = scenario;
+  MissionMgr.selectedScenario = scenario;
+
+  setTimeout(() => showMissionCard(scenario), 1200);
+}
+
+function showScenarioLoadingAnimation(scenario) {
+  const loader = document.createElement('div');
+  loader.id = 'missionCardLoader';
+  loader.style.cssText = `
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    border-radius: 16px;
+    padding: 20px;
+    margin: 12px 0;
+    color: white;
+    text-align: center;
+  `;
+  loader.innerHTML = `
+    <div style="font-size:20px;margin-bottom:8px">🎯</div>
+    <div style="font-weight:700;font-size:15px;margin-bottom:4px">"${scenario.title}" 선택됨</div>
+    <div style="font-size:12px;opacity:0.8;margin-bottom:16px">미션 카드 준비 중...</div>
+    <div class="mission-card-progress"><div class="mission-card-progress-bar"></div></div>
+  `;
+  elements.conversation.appendChild(loader);
+  loader.scrollIntoView({ behavior: 'smooth' });
+}
+
+function showMissionCard(scenario) {
+  document.getElementById('missionCardLoader')?.remove();
+
+  const grammarChips = (MissionMgr.override?.target_grammar || []).slice(0, 2)
+    .map(g => `<span style="display:inline-block;background:#f0f3ff;color:#667eea;border-radius:8px;padding:4px 10px;font-size:12px;font-weight:600;margin:2px">${g}</span>`)
+    .join('');
+  const vocabChips = (MissionMgr.override?.vocabulary || []).slice(0, 3)
+    .map(v => `<span style="display:inline-block;background:#f0fff4;color:#00a884;border-radius:8px;padding:4px 10px;font-size:12px;margin:2px">${v}</span>`)
+    .join('');
+
+  const card = document.createElement('div');
+  card.className = 'mission-card';
+  card.style.cssText = `
+    background: white;
+    border: 2px solid #667eea;
+    border-radius: 16px;
+    padding: 20px;
+    margin: 12px 0;
+    box-shadow: 0 4px 20px rgba(102,126,234,0.15);
+  `;
+  card.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #f0f0f0">
+      <span style="background:#667eea;color:white;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">${scenario.number}</span>
+      <div>
+        <div style="font-weight:700;font-size:16px;color:#1a1a1a">${scenario.title}</div>
+        <div style="font-size:11px;color:#8696A0">Mission Card</div>
+      </div>
+    </div>
+    <div style="margin-bottom:14px">
+      <div style="font-size:11px;font-weight:700;color:#667eea;text-transform:uppercase;margin-bottom:6px;letter-spacing:0.5px">🎯 필수 도구</div>
+      ${grammarChips}${vocabChips}
+    </div>
+    <div style="background:#fffbf0;border-left:3px solid #f7931e;border-radius:8px;padding:12px;margin-bottom:14px">
+      <div style="font-size:11px;font-weight:700;color:#f7931e;text-transform:uppercase;margin-bottom:8px">💡 Golden Thread (선택사항)</div>
+      ${(scenario.golden_thread || []).map((step, i) =>
+        `<div style="font-size:12px;color:#1a1a1a;margin-bottom:${i < 2 ? '6px' : '0'};display:flex;gap:8px">
+          <span style="color:#f7931e;flex-shrink:0">→</span><span>${step}</span>
+        </div>`
+      ).join('')}
+    </div>
+    <div style="margin-bottom:16px">
+      <div style="font-size:11px;font-weight:700;color:#8696A0;text-transform:uppercase;margin-bottom:6px">✨ 고급 연어 (Collocations)</div>
+      ${(scenario.collocations || []).map(c =>
+        `<span style="display:inline-block;background:#f8f8f8;border:1px solid #e5e5e5;border-radius:8px;padding:4px 10px;font-size:12px;margin:2px;color:#1a1a1a">${c}</span>`
+      ).join('')}
+    </div>
+    <div style="background:#f0f3ff;border-radius:10px;padding:12px;font-size:14px;color:#1a1a1a;line-height:1.5">
+      <div style="font-size:10px;color:#667eea;font-weight:700;margin-bottom:4px">KoCo:</div>
+      ${scenario.first_question}
+    </div>
+  `;
+
+  elements.conversation.appendChild(card);
+  card.scrollIntoView({ behavior: 'smooth' });
+
+  setTimeout(() => injectMissionFirstQuestion(scenario), 600);
+}
+
+function injectMissionFirstQuestion(scenario) {
+  addMessage('assistant', scenario.first_question);
+  if (!AudioGate.isMuted()) speakKorean(scenario.first_question);
+}
+
 async function toggleMissionMode() {
   if (STATE.mode === 'mission') {
     updateMode('freeChat');
@@ -1499,6 +1673,7 @@ async function toggleMissionMode() {
     };
 
     showMissionSheet(missionSheet);
+    showScenarioChoice(missionSheet);
 
   } catch (e) {
     console.error('generateMissionConstraints error:', e);
@@ -1920,6 +2095,31 @@ function submitTextInput() {
   const textarea = elements.userTextInput;
   const text = textarea.value.trim();
   if (!text) return;
+
+  // ÉTAPE 5 — Scenario detection before sending to Claude
+  if (STATE.scenarioDetectionActive) {
+    const num = parseInt(text);
+    if ([1, 2, 3].includes(num) && text === String(num)) {
+      textarea.value = '';
+      textarea.style.height = 'auto';
+      syncMicSendState();
+      selectScenario(num);
+      return;
+    }
+    const flexMatch = text.match(/([123])/);
+    if (flexMatch) {
+      const detected = parseInt(flexMatch[1]);
+      if ([1, 2, 3].includes(detected)) {
+        textarea.value = '';
+        textarea.style.height = 'auto';
+        syncMicSendState();
+        selectScenario(detected);
+        return;
+      }
+    }
+    STATE.scenarioDetectionActive = false;
+  }
+
   textarea.value = '';
   textarea.style.height = 'auto';
   syncMicSendState();

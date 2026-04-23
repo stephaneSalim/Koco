@@ -546,6 +546,20 @@ BLOCKING PROTOCOL
 재작성 후 계속 진행."
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+COACH FLEXIBILITY RULES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+${context.selectedScenario ? `SCÉNARIO SÉLECTIONNÉ : ${context.selectedScenario.title}
+GOLDEN THREAD :
+${(context.selectedScenario.golden_thread || []).join('\n')}
+` : ''}
+RÈGLE DE FLEXIBILITÉ :
+1. Si l'utilisateur suit le Golden Thread → "논리적 흐름이 탁월합니다 ✓" + continue
+2. Si l'utilisateur choisit son propre chemin MAIS utilise les structures cibles correctement → "독창적 접근 + 정확한 구조 사용 ✓"
+3. Si l'utilisateur utilise les collocations avancées → "고급 연어 사용 — 매우 인상적입니다"
+4. Objectif = structures correctes, pas conformité rigide au Golden Thread.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 VISION CALIBRATION
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ${context.missionOverride ? `
