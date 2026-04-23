@@ -4,6 +4,7 @@
  */
 
 let _currentTtsAudio = null; // hoisted — AudioGate.setMuted() needs this
+let sessionTargetsUsed = new Set();
 
 // ── AudioGate — protects ElevenLabs credits by aborting fetch on mute ──────
 const AudioGate = {
@@ -395,6 +396,105 @@ function parseGoldenSentence(text) {
   };
 }
 
+function parseSpeakResponse(text) {
+  const match = text.match(/\[SPEAK_RESPONSE\]([\s\S]*?)\[\/SPEAK_RESPONSE\]/);
+  if (!match) return null;
+  const block = match[1];
+  const extract = (field) => {
+    const m = block.match(new RegExp(field + ':\\s*([\\s\\S]*?)(?=\\n[A-Z_]+:|$)'));
+    return m ? m[1].trim() : '';
+  };
+  return {
+    validation:     extract('VALIDATION'),
+    native_polish:  extract('NATIVE_POLISH'),
+    native_reason:  extract('NATIVE_REASON'),
+    target_used:    extract('TARGET_USED'),
+    pivot_question: extract('PIVOT_QUESTION')
+  };
+}
+
+function buildTargetsStatus(allTargets, currentTargetUsed) {
+  if (!allTargets?.length) return [];
+  if (currentTargetUsed) sessionTargetsUsed.add(currentTargetUsed);
+  return allTargets.slice(0, 5).map(g => ({ grammar: g, used: sessionTargetsUsed.has(g) }));
+}
+
+function updateSessionTargets(targetUsed) {
+  if (!targetUsed) return;
+  sessionTargetsUsed.add(targetUsed);
+}
+
+function resetSessionState() {
+  sessionTargetsUsed = new Set();
+}
+
+function renderFeedbackCard(speakData, correction, sessionTargets) {
+  if (!speakData) return null;
+  const targetsStatus = buildTargetsStatus(sessionTargets, speakData.target_used);
+
+  const card = document.createElement('div');
+  card.className = 'feedback-card';
+  card.innerHTML = `
+    <div class="feedback-validation">
+      <span class="feedback-koco-label">KoCo</span>
+      <p class="feedback-validation-text">${speakData.validation}</p>
+    </div>
+    ${speakData.native_polish ? `
+    <div class="feedback-polish">
+      <div class="feedback-polish-header">
+        <span class="feedback-polish-icon">💡</span>
+        <span class="feedback-polish-label">네이티브처럼</span>
+      </div>
+      <div class="feedback-polish-sentence">${speakData.native_polish}</div>
+      ${speakData.native_reason ? `<div class="feedback-polish-reason">${speakData.native_reason}</div>` : ''}
+    </div>` : ''}
+    ${targetsStatus.length > 0 ? `
+    <div class="feedback-progress">
+      ${targetsStatus.map(t =>
+        `<span class="feedback-target ${t.used ? 'used' : 'pending'}">${t.used ? '✅' : '⏳'} ${t.grammar}</span>`
+      ).join('')}
+    </div>` : ''}
+    <div class="feedback-pivot">
+      <div class="feedback-pivot-line"></div>
+      <p class="feedback-pivot-text">${speakData.pivot_question}</p>
+    </div>
+  `;
+  return card;
+}
+
+function addSpeakMessage(rawResponse) {
+  const speakData = parseSpeakResponse(rawResponse);
+  const { correction } = parseCorrection(rawResponse);
+
+  if (speakData) {
+    const card = renderFeedbackCard(
+      speakData,
+      correction,
+      MissionMgr.override?.target_grammar || []
+    );
+    if (card) {
+      const wrapper = document.createElement('div');
+      wrapper.classList.add('message', 'message--assistant');
+      wrapper.appendChild(card);
+      elements.conversation.appendChild(wrapper);
+      elements.conversation.scrollTop = elements.conversation.scrollHeight;
+    }
+
+    const ttsText = [speakData.validation, speakData.native_polish, speakData.pivot_question]
+      .filter(Boolean).join(' ');
+    if (!AudioGate.isMuted()) speakKorean(ttsText);
+
+    addCorrectionBlock(correction);
+
+    if (speakData.target_used) updateSessionTargets(speakData.target_used);
+
+  } else {
+    addMessage('assistant', rawResponse);
+  }
+
+  return { correction };
+}
+
 function addCorrectionBlock(correction) {
   if (!correction) return;
 
@@ -733,9 +833,18 @@ async function processUserInput(text) {
     }
 
     STATE.messageCount += 1;
-    const { text: conversationText, correction } = parseCorrection(result.response);
-    addMessage('assistant', conversationText);
-    addCorrectionBlock(correction);
+
+    let correction;
+    if (STATE.mode === 'speak') {
+      const result2 = addSpeakMessage(result.response);
+      correction = result2.correction;
+    } else {
+      const parsed = parseCorrection(result.response);
+      correction = parsed.correction;
+      addMessage('assistant', parsed.text);
+      addCorrectionBlock(correction);
+    }
+
     if (correction && correction.status !== 'correct') {
       STATE.sessionCorrections.push(correction);
     }
@@ -760,8 +869,9 @@ async function processUserInput(text) {
       STATE.session.goldenSentence = goldenSentence;
     }
 
-    if (!AudioGate.isMuted()) {
-      await speakKorean(conversationText);
+    if (STATE.mode !== 'speak' && !AudioGate.isMuted()) {
+      const { text: convText } = parseCorrection(result.response);
+      await speakKorean(convText);
     }
 
     // Track detected structures, if any
@@ -2042,64 +2152,85 @@ function openSessionSummary() {
 }
 
 function showSessionReport(corrections, goldenSentence) {
-  if (!corrections?.length && !goldenSentence) return;
-
   const total = corrections?.length || 0;
   const correct = corrections?.filter(c => c.status === 'correct').length || 0;
   const mastery = total > 0 ? Math.round((correct / total) * 100) : 0;
 
+  const majorCorrection = (corrections || [])
+    .filter(c => c.status === 'major')
+    .sort((a, b) => (b.fixed?.length || 0) - (a.original?.length || 0))[0];
+
+  const radius = 40;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (mastery / 100) * circumference;
+
   const container = document.createElement('div');
-  container.style.cssText = `
-    background: white;
-    border-radius: 16px;
-    padding: 20px;
-    margin-top: 16px;
-    border: 2px solid #667eea;
-    box-shadow: 0 4px 20px rgba(102,126,234,0.1);
-  `;
-
-  const strengthItems = (corrections || []).filter(c => c.status === 'correct').slice(0, 3)
-    .map(c => `<div style="font-size:12px;color:#1a1a1a;margin:2px 0">• ${c.original}</div>`).join('');
-  const growthItems = (corrections || []).filter(c => c.status === 'major').slice(0, 3)
-    .map(c => `<div style="font-size:12px;color:#1a1a1a;margin:2px 0">• ${c.original} → ${c.fixed}</div>`).join('');
-
+  container.className = 'session-report-dashboard';
   container.innerHTML = `
-    <div style="font-size:17px;font-weight:700;color:#667eea;margin-bottom:16px">📊 Session Report</div>
-
-    <div style="background:#f0f3ff;border-radius:12px;padding:16px;margin-bottom:14px;text-align:center">
-      <div style="font-size:36px;font-weight:900;color:#667eea">${mastery}%</div>
-      <div style="font-size:13px;color:#8696A0">Mastery Score</div>
-      <div style="background:#e5e5e5;border-radius:4px;height:6px;margin-top:10px;overflow:hidden">
-        <div style="width:${mastery}%;height:100%;background:linear-gradient(90deg,#667eea,#764ba2);border-radius:4px;transition:width 1s ease"></div>
+    <div class="report-mastery">
+      <svg width="100" height="100" style="transform:rotate(-90deg)">
+        <circle cx="50" cy="50" r="${radius}" fill="none" stroke="#f0f0f0" stroke-width="8"/>
+        <circle cx="50" cy="50" r="${radius}" fill="none" stroke="#667eea" stroke-width="8"
+          stroke-dasharray="${circumference.toFixed(1)}"
+          stroke-dashoffset="${offset.toFixed(1)}"
+          stroke-linecap="round"
+          style="transition:stroke-dashoffset 1s ease"/>
+      </svg>
+      <div class="report-mastery-score">
+        <span class="report-mastery-pct">${mastery}%</span>
+        <span class="report-mastery-label">Mastery</span>
       </div>
     </div>
 
     ${goldenSentence?.sentence ? `
-    <div style="background:linear-gradient(135deg,#fffbf0,#fff8e8);border:2px solid #f7931e;border-radius:12px;padding:16px;margin-bottom:14px">
-      <div style="font-size:11px;font-weight:700;color:#f7931e;margin-bottom:8px;text-transform:uppercase">⭐ Golden Sentence</div>
-      <div style="font-size:15px;color:#1a1a1a;font-weight:500;line-height:1.5;margin-bottom:8px">"${goldenSentence.sentence}"</div>
-      <div style="font-size:12px;color:#8696A0">${goldenSentence.why}</div>
-      ${goldenSentence.structures_detected ? `<div style="margin-top:8px"><span style="background:#f0f3ff;color:#667eea;border-radius:8px;padding:3px 8px;font-size:11px;font-weight:600">${goldenSentence.structures_detected}</span></div>` : ''}
+    <div class="report-golden-card">
+      <div class="report-golden-header">⭐ Golden Sentence</div>
+      <div class="report-golden-sentence">"${goldenSentence.sentence}"</div>
+      ${goldenSentence.why ? `<div class="report-golden-why">${goldenSentence.why}</div>` : ''}
+      ${goldenSentence.structures_detected ? `<div class="report-golden-tag">${goldenSentence.structures_detected}</div>` : ''}
     </div>` : ''}
 
-    <div style="margin-bottom:14px">
-      <div style="font-size:12px;font-weight:700;color:#1a1a1a;margin-bottom:8px">🔍 Linguistic Insights</div>
-      ${strengthItems ? `<div style="background:#f0fff4;border-radius:8px;padding:10px;margin-bottom:8px"><div style="font-size:11px;color:#00a884;font-weight:700;margin-bottom:4px">✅ Strengths</div>${strengthItems}</div>` : ''}
-      ${growthItems ? `<div style="background:#fff5f5;border-radius:8px;padding:10px"><div style="font-size:11px;color:#e53935;font-weight:700;margin-bottom:4px">📈 Growth Areas</div>${growthItems}</div>` : ''}
+    ${majorCorrection ? `
+    <div class="report-before-after">
+      <div class="report-ba-header">🔄 Most Significant Correction</div>
+      <div class="report-ba-grid">
+        <div class="report-ba-before">
+          <div class="report-ba-label">Before</div>
+          <div class="report-ba-text error">${majorCorrection.original}</div>
+        </div>
+        <div class="report-ba-arrow">→</div>
+        <div class="report-ba-after">
+          <div class="report-ba-label">After</div>
+          <div class="report-ba-text correct">${majorCorrection.fixed}</div>
+        </div>
+      </div>
+      ${majorCorrection.note ? `<div class="report-ba-note">${majorCorrection.note}</div>` : ''}
+    </div>` : ''}
+
+    <div class="report-stats">
+      <div class="report-stat">
+        <span class="report-stat-value">${correct}</span>
+        <span class="report-stat-label">Correct</span>
+      </div>
+      <div class="report-stat">
+        <span class="report-stat-value">${sessionTargetsUsed.size}</span>
+        <span class="report-stat-label">Targets Used</span>
+      </div>
+      <div class="report-stat">
+        <span class="report-stat-value">${total}</span>
+        <span class="report-stat-label">Total</span>
+      </div>
     </div>
 
-    <div style="border-top:1px solid #f0f0f0;padding-top:12px;display:flex;gap:8px">
-      <button onclick="exportAnkiData()" style="flex:1;background:#f8f8f8;border:1px solid #e5e5e5;border-radius:10px;padding:10px;font-size:12px;cursor:pointer;color:#8696A0">
-        📤 Anki (bientôt)
-      </button>
-      <button onclick="startNewSession()" style="flex:2;background:#667eea;color:white;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:600;cursor:pointer">
-        새 세션 시작 →
-      </button>
+    <div class="report-actions">
+      <button onclick="exportAnkiData()" class="report-btn-secondary">📤 Anki</button>
+      <button onclick="startNewSession()" class="report-btn-primary">새 세션 →</button>
     </div>
   `;
 
   const summarySheet = document.querySelector('.summary-sheet');
   if (summarySheet) summarySheet.appendChild(container);
+  resetSessionState();
 }
 
 function startNewSession() {

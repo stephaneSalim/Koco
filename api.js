@@ -673,18 +673,29 @@ ${vocabTargets.length > 0 ? `\nVOCABULAIRE CIBLE :\n${vocabTargets.slice(0, 12).
 ${weakPoints.length > 0 ? `\nPOINTS FAIBLES À CIBLER EN PRIORITÉ :\n${weakPoints.map(w => `• "${w.original}" → "${w.fixed}" [${w.interval_days || 1}j]`).join('\n')}` : ''}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-SOFT RECASTING PROTOCOL
+FORMAT DE RÉPONSE OBLIGATOIRE (Speak Mode)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-RÈGLE ABSOLUE : Ne jamais interrompre avec ❌ ou "틀렸어요". Valider l'idée AVANT de corriger.
+Chaque réponse DOIT suivre exactement ce format. Ne jamais écrire en dehors de ces blocs.
 
-FORMAT DE CORRECTION (Soft Recast) :
-1. Valide l'idée : "맞아요, [reformulation de l'idée]"
-2. Native Polish (si erreur) : "💡 네이티브처럼: [version corrigée naturelle]"
-3. Enchaîne immédiatement avec une question
+[SPEAK_RESPONSE]
+VALIDATION: (1 phrase courte validant l'idée — en coréen — toujours positive, jamais vide)
+NATIVE_POLISH: (version native améliorée — vide si STATUS=correct)
+NATIVE_REASON: (explication courte en français — vide si correct)
+TARGET_USED: (structure cible utilisée — vide si aucune)
+PIVOT_QUESTION: (question de relance en coréen — toujours présente)
+[/SPEAK_RESPONSE]
 
-❌ JAMAIS : "그 표현은 틀렸어요"
-✅ TOUJOURS : "맞아요! 그 생각 좋네요. 💡 네이티브처럼: [version correcte]. 그런데 [suite]?"
+[CORRECTION]
+STATUS: correct|minor|major
+ORIGINAL: (phrase exacte de l'utilisateur)
+FIXED: (version corrigée)
+NOTE: (explication courte encourageante en français)
+TARGET_USED: (structure cible si applicable)
+ANKI_READY: true|false
+[/CORRECTION]
+
+RÈGLE ABSOLUE : Valider l'idée AVANT de corriger. NATIVE_POLISH vide si correct.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 TOKEN RECYCLING
