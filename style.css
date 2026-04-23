@@ -1701,129 +1701,195 @@ input, button, textarea, select {
   font-size: 10px;
 }
 
-/* Header — minimal, context only */
-.header {
-  display: flex;
+/* ── Glassmorphic App Header ──────────────────── */
+.app-header {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  background-color: #fff;
-  border-bottom: 1px solid #e0e0e0;
-  flex-shrink: 0;
-  overflow: visible;
-  position: relative;
-  z-index: 10;
+  padding: 10px 16px;
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  min-height: 56px;
+  gap: 8px;
 }
 
-.header__branding {
-  font-size: 18px;
+/* Zone 1 : Brand */
+.header-brand {
+  display: flex;
+  align-items: center;
+}
+
+.header-logo {
+  font-size: 16px;
   font-weight: 800;
-  color: #4a90e2;
-  flex-shrink: 0;
+  color: #667eea;
+  letter-spacing: -0.5px;
+  line-height: 1;
 }
 
-/* TTS Toggle Button */
-.tts-toggle {
-  position: relative;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: transparent;
-  border: none;
+/* Zone 2 : Context Badge */
+.header-context {
   display: flex;
-  align-items: center;
   justify-content: center;
-  flex-shrink: 0;
-  overflow: visible;
-  cursor: pointer;
-  font-size: 18px;
-  transition: all 0.2s ease;
-  padding: 0;
-}
-
-.tts-toggle:active {
-  transform: scale(0.95);
-}
-
-.tts-toggle--active {
-  border-color: #4a90e2;
-  background-color: #e3f0ff;
-  color: #4a90e2;
-  box-shadow: 0 2px 8px rgba(74, 144, 226, 0.2);
-}
-
-/* Header actions group */
-.header-actions {
-  display: flex;
   align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
+  min-width: 0;
 }
 
-/* Mission button */
-.mission-btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: transparent;
+.header-unit-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  min-width: 0;
+  background: none;
   border: none;
   cursor: pointer;
-  font-size: 18px;
+  padding: 4px 8px;
+  border-radius: 10px;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease;
+}
+
+.header-unit-badge:active {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.header-unit-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a1a1a;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
+  transition: opacity 0.2s ease;
+}
+
+.header-unit-subtitle {
+  font-size: 10px;
+  font-weight: 600;
+  color: #8696A0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  line-height: 1;
+  margin-top: 2px;
+  transition: opacity 0.2s ease;
+}
+
+/* Zone 3 : Controls */
+.header-controls {
   display: flex;
   align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: all 0.2s ease;
-  padding: 0;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
-.mission-btn:active {
-  transform: scale(0.92);
-}
-
-.mission-btn.active {
-  background: linear-gradient(135deg, #ff6b35, #f7931e);
-  box-shadow: 0 0 0 0 rgba(247, 147, 30, 0.4);
-  animation: mission-pulse 1.8s ease-in-out infinite;
-}
-
-@keyframes mission-pulse {
-  0%   { box-shadow: 0 0 0 0 rgba(247, 147, 30, 0.4); }
-  70%  { box-shadow: 0 0 0 8px rgba(247, 147, 30, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(247, 147, 30, 0); }
-}
-
-@media (max-width: 380px) {
-  .mission-btn { width: 42px; height: 42px; font-size: 20px; }
-}
-
-/* ── Mode Switch (Tutorat / Examen) ─────────── */
-.mode-switch-container {
-  display: flex;
-  background: #f0f0f0;
-  border-radius: 20px;
+/* Mode Switcher */
+.mode-switcher {
+  background: #f1f1f1;
+  border-radius: 25px;
   padding: 3px;
+  display: flex;
   gap: 2px;
 }
 
-.mode-switch-btn {
+.mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   border: none;
-  border-radius: 17px;
-  padding: 6px 12px;
-  font-size: 12px;
+  border-radius: 22px;
+  padding: 5px 10px;
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
   background: transparent;
   color: #8696A0;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
   white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+  position: relative;
+  overflow: hidden;
+}
+
+.mode-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 122, 255, 0.1);
+  border-radius: 22px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.mode-btn:active::after { opacity: 1; }
+
+.mode-btn.active {
+  background: white;
+  color: #007AFF;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+}
+
+.mode-btn-icon { font-size: 13px; line-height: 1; }
+.mode-btn-label { font-size: 11px; }
+
+/* Ghost Icons */
+.header-ghost-icons {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ghost-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #8696A0;
+  transition: all 0.2s ease;
   -webkit-tap-highlight-color: transparent;
 }
 
-.mode-switch-btn.active {
-  background: white;
-  color: #1a1a1a;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+.ghost-icon:hover { background: rgba(0,0,0,0.06); }
+.ghost-icon:active { background: rgba(0,0,0,0.1); transform: scale(0.92); }
+.ghost-icon.muted { opacity: 0.4; }
+
+.ghost-icon-stop { color: #e53935; }
+.ghost-icon-stop:hover { background: rgba(229, 57, 53, 0.08); }
+
+/* Badge update animation */
+@keyframes badgeUpdate {
+  0%   { opacity: 0.5; transform: translateY(-4px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.header-unit-badge.updating {
+  animation: badgeUpdate 0.3s ease forwards;
+}
+
+/* Responsive */
+@media (max-width: 380px) {
+  .mode-btn-label { display: none; }
+  .mode-btn { padding: 5px 8px; }
+  .header-unit-title { max-width: 110px; font-size: 13px; }
+  .header-logo { font-size: 14px; }
+}
+
+@media (max-width: 320px) {
+  .app-header { padding: 8px 12px; }
+  .header-unit-subtitle { display: none; }
 }
 
 @keyframes notifFadeIn {

@@ -8,21 +8,43 @@
 </head>
 <body>
   <div id="app">
-    <header class="header">
-      <div class="header__branding">KoCo</div>
-      <button id="unitSelectorBtn" class="header__unit-selector" type="button">
-        <span id="headerUnitTitle" class="header__unit-title">음식과 영양</span>
-        <span id="headerUnitSub" class="header__unit-sub">Food & Nutrition · 자유 대화</span>
-        <span class="header__unit-chevron">▾</span>
-      </button>
-      <div class="header-actions">
-        <button class="tts-toggle" id="ttsToggleBtn" type="button" title="TTS on/off">🔊</button>
-        <div class="mode-switch-container" id="modeSwitchContainer">
-          <button class="mode-switch-btn active" id="btnSpeak" onclick="setMode('speak')" title="Mode Tutorat — Coach flexible">💬 Tutorat</button>
-          <button class="mode-switch-btn" id="btnMission" onclick="setMode('mission')" title="Mode Examen — Proctor strict">🎯 Examen</button>
-        </div>
+    <header class="app-header" id="appHeader">
+
+      <!-- ZONE 1 : Brand (gauche) -->
+      <div class="header-brand">
+        <span class="header-logo">KoCo</span>
       </div>
-      <button id="endSessionBtn" class="header__end-session" title="Terminer la séance" type="button">⏹</button>
+
+      <!-- ZONE 2 : Context Badge (centre) -->
+      <div class="header-context">
+        <button class="header-unit-badge" id="unitSelectorBtn" type="button">
+          <span class="header-unit-title" id="headerUnitTitle">음식과 영양</span>
+          <span class="header-unit-subtitle" id="headerUnitSubtitle">5A · Nutrition</span>
+        </button>
+      </div>
+
+      <!-- ZONE 3 : Controls (droite) -->
+      <div class="header-controls">
+
+        <!-- Mode Switcher compact -->
+        <div class="mode-switcher" id="modeSwitcher">
+          <button class="mode-btn active" id="btnSpeak" onclick="setMode('speak')" aria-label="Mode Tutorat">
+            <span class="mode-btn-icon">💬</span>
+            <span class="mode-btn-label">Tutorat</span>
+          </button>
+          <button class="mode-btn" id="btnMission" onclick="setMode('mission')" aria-label="Mode Examen">
+            <span class="mode-btn-icon">🎯</span>
+            <span class="mode-btn-label">Examen</span>
+          </button>
+        </div>
+
+        <!-- Ghost Icons -->
+        <div class="header-ghost-icons">
+          <button class="ghost-icon" id="ttsToggle" aria-label="Volume">🔊</button>
+          <button class="ghost-icon ghost-icon-stop" id="endSessionBtn" aria-label="Stop session" type="button">⏹</button>
+        </div>
+
+      </div>
     </header>
 
     <div id="sessionSummaryModal" class="summary-modal hidden">

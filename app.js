@@ -108,7 +108,7 @@ let _isRecording = false;
 
 const elements = {
   headerUnitTitle: document.getElementById('headerUnitTitle'),
-  headerUnitSub: document.getElementById('headerUnitSub'),
+  headerUnitSubtitle: document.getElementById('headerUnitSubtitle'),
   unitSelectorBtn: document.getElementById('unitSelectorBtn'),
   unitSelectorModal: document.getElementById('unitSelectorModal'),
   unitSelectorList: document.getElementById('unitSelectorList'),
@@ -151,18 +151,27 @@ function createTtsToggleButton() {
 }
 
 function updateTtsButton() {
-  if (!elements.ttsToggleButton) return;
   const muted = AudioGate.isMuted();
-  elements.ttsToggleButton.textContent = muted ? '🔇' : '🔊';
-  elements.ttsToggleButton.style.opacity = muted ? '0.65' : '1';
-  elements.ttsToggleButton.title = muted
-    ? 'Son désactivé — ElevenLabs protégé'
-    : 'TTS on/off';
+  const btn = document.getElementById('ttsToggle') || elements.ttsToggleButton;
+  if (!btn) return;
+  btn.textContent = muted ? '🔇' : '🔊';
+  btn.classList.toggle('muted', muted);
+  btn.setAttribute('aria-label', muted ? 'Son désactivé' : 'Son activé');
+}
+
+function toggleTTS() {
+  const newMuted = !AudioGate.isMuted();
+  AudioGate.setMuted(newMuted);
+  const btn = document.getElementById('ttsToggle');
+  if (btn) {
+    btn.textContent = newMuted ? '🔇' : '🔊';
+    btn.classList.toggle('muted', newMuted);
+    btn.setAttribute('aria-label', newMuted ? 'Son désactivé' : 'Son activé');
+  }
 }
 
 function toggleTts() {
-  AudioGate.setMuted(!AudioGate.isMuted());
-  updateTtsButton();
+  toggleTTS();
 }
 
 function startTtsPulse() {
@@ -326,16 +335,25 @@ function showAlert(type, text) {
   }, 4200);
 }
 
+function updateHeaderBadge(unit) {
+  const titleEl = document.getElementById('headerUnitTitle');
+  const subtitleEl = document.getElementById('headerUnitSubtitle');
+  const badgeEl = document.getElementById('unitSelectorBtn');
+
+  if (!titleEl || !subtitleEl) return;
+
+  badgeEl?.classList.add('updating');
+  setTimeout(() => {
+    titleEl.textContent = unit?.title || unit?.title_ko || '자유 주제';
+    const level = unit?.level || '';
+    const sub = unit?.subtitle || unit?.title_en || '';
+    subtitleEl.textContent = level && sub ? `${level} · ${sub}` : level || sub || '';
+    badgeEl?.classList.remove('updating');
+  }, 150);
+}
+
 function updateHeader() {
-  const unit = STATE.activeUnit;
-  if (elements.headerUnitTitle) {
-    elements.headerUnitTitle.textContent = unit ? unit.title : '단원 선택';
-  }
-  if (elements.headerUnitSub) {
-    elements.headerUnitSub.textContent = unit
-      ? `${unit.subtitle} · ${MODE_INFO[STATE.mode].label}`
-      : '';
-  }
+  updateHeaderBadge(STATE.activeUnit);
 }
 
 function addMessage(role, text) {
@@ -2474,12 +2492,8 @@ function initApp() {
     hideApiModal();
   });
 
-  if (!elements.ttsToggleButton) {
-    elements.ttsToggleButton = document.getElementById('ttsToggleBtn') || document.querySelector('.tts-toggle');
-  }
-  if (elements.ttsToggleButton) {
-    elements.ttsToggleButton.addEventListener('click', toggleTts);
-  }
+  const ttsGhost = document.getElementById('ttsToggle');
+  if (ttsGhost) ttsGhost.addEventListener('click', toggleTTS);
   updateTtsButton();
 
   initPushToTalk();
