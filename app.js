@@ -3,6 +3,43 @@
  * app.js — Application logic, modes, speech recognition, localStorage
  */
 
+let _currentTtsAudio = null; // hoisted — AudioGate.setMuted() needs this
+
+// ── AudioGate — protects ElevenLabs credits by aborting fetch on mute ──────
+const AudioGate = {
+  muted: localStorage.getItem('koco_tts_enabled') === 'false',
+  activeController: null,
+
+  isMuted() { return this.muted; },
+
+  setMuted(val) {
+    this.muted = val;
+    localStorage.setItem('koco_tts_enabled', !val);
+
+    if (val && this.activeController) {
+      this.activeController.abort();
+      this.activeController = null;
+      console.log('AudioGate: ElevenLabs request aborted — muted');
+    }
+
+    if (val && _currentTtsAudio) {
+      _currentTtsAudio.pause();
+      _currentTtsAudio.src = '';
+      _currentTtsAudio = null;
+    }
+  },
+
+  createController() {
+    if (this.activeController) this.activeController.abort();
+    this.activeController = new AbortController();
+    return this.activeController;
+  },
+
+  clearController() { this.activeController = null; }
+};
+window.AudioGate = AudioGate;
+// ────────────────────────────────────────────────────────────────────────────
+
 //#region App state
 const STATE = {
   mode: 'freeChat',
@@ -101,7 +138,6 @@ const elements = {
 };
 
 let ttsPulseInterval = null;
-let ttsEnabled = localStorage.getItem('koco_tts_enabled') !== 'false';
 
 function createTtsToggleButton() {
   const existing = document.getElementById('ttsToggleBtn');
@@ -114,14 +150,16 @@ function createTtsToggleButton() {
 
 function updateTtsButton() {
   if (!elements.ttsToggleButton) return;
-  elements.ttsToggleButton.textContent = ttsEnabled ? '🔊' : '🔇';
-  elements.ttsToggleButton.style.opacity = ttsEnabled ? '1' : '0.65';
+  const muted = AudioGate.isMuted();
+  elements.ttsToggleButton.textContent = muted ? '🔇' : '🔊';
+  elements.ttsToggleButton.style.opacity = muted ? '0.65' : '1';
+  elements.ttsToggleButton.title = muted
+    ? 'Son désactivé — ElevenLabs protégé'
+    : 'TTS on/off';
 }
 
 function toggleTts() {
-  ttsEnabled = !ttsEnabled;
-  localStorage.setItem('koco_tts_enabled', ttsEnabled);
-  if (!ttsEnabled) stopTts();
+  AudioGate.setMuted(!AudioGate.isMuted());
   updateTtsButton();
 }
 
@@ -143,14 +181,14 @@ function stopTtsPulse() {
   elements.ttsToggleButton.style.transform = '';
 }
 
-let _currentTtsAudio = null;
-
 function stopTts() {
   stopTtsPulse();
   if (_currentTtsAudio) {
     _currentTtsAudio.pause();
+    _currentTtsAudio.src = '';
     _currentTtsAudio = null;
   }
+  AudioGate.clearController();
 }
 
 function cleanForTTS(text) {
@@ -160,54 +198,82 @@ function cleanForTTS(text) {
     .trim();
 }
 
-function speakKorean(text) {
-  return new Promise(async (resolve) => {
-    STATE.isSpeaking = true;
-    startTtsPulse();
+async function speakKorean(text) {
+  // GATE 1 — blocked before any network call
+  if (AudioGate.isMuted()) {
+    console.log('AudioGate: TTS blocked — muted');
+    return;
+  }
 
-    const cleaned = cleanForTTS(text);
-    if (!cleaned) {
-      STATE.isSpeaking = false;
-      stopTtsPulse();
-      resolve();
+  // GATE 2 — stop any previous audio
+  if (_currentTtsAudio) {
+    _currentTtsAudio.pause();
+    _currentTtsAudio.src = '';
+    _currentTtsAudio = null;
+  }
+
+  const cleaned = cleanForTTS(text);
+  if (!cleaned || cleaned.length < 2) return;
+
+  STATE.isSpeaking = true;
+  startTtsPulse();
+
+  const done = () => {
+    STATE.isSpeaking = false;
+    stopTtsPulse();
+    setMicState('idle');
+    _currentTtsAudio = null;
+    AudioGate.clearController();
+  };
+
+  // GATE 3 — AbortController ties fetch lifecycle to mute state
+  const controller = AudioGate.createController();
+
+  try {
+    const resp = await fetch(API_CONFIG.TTS_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: cleaned }),
+      signal: controller.signal
+    });
+
+    // GATE 4 — check after round-trip (user may have muted while waiting)
+    if (AudioGate.isMuted()) {
+      console.log('AudioGate: response received but muted — discarded');
+      done();
       return;
     }
 
-    const done = () => {
-      STATE.isSpeaking = false;
-      stopTtsPulse();
-      setMicState('idle');
-      _currentTtsAudio = null;
-      resolve();
-    };
+    if (!resp.ok) throw new Error(`TTS ${resp.status}`);
 
-    try {
-      const resp = await fetch(API_CONFIG.TTS_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: cleaned })
-      });
+    const data = await resp.json();
 
-      if (!resp.ok) throw new Error(`TTS ${resp.status}`);
-
-      const { audio } = await resp.json();
-      const binary = atob(audio);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-      const blob = new Blob([bytes], { type: 'audio/mpeg' });
-      const url = URL.createObjectURL(blob);
-
-      const audioEl = new Audio(url);
-      _currentTtsAudio = audioEl;
-      audioEl.onended = () => { URL.revokeObjectURL(url); done(); };
-      audioEl.onerror = () => { URL.revokeObjectURL(url); done(); };
-      audioEl.play();
-
-    } catch (e) {
-      console.warn('ElevenLabs TTS failed:', e.message);
+    if (data.skipped) {
       done();
+      return;
     }
-  });
+
+    // GATE 5 — check before playback
+    if (AudioGate.isMuted()) { done(); return; }
+
+    const bytes = Uint8Array.from(atob(data.audio), c => c.charCodeAt(0));
+    const blob = new Blob([bytes], { type: 'audio/mpeg' });
+    const url = URL.createObjectURL(blob);
+
+    const audioEl = new Audio(url);
+    _currentTtsAudio = audioEl;
+    audioEl.onended = () => { URL.revokeObjectURL(url); done(); };
+    audioEl.onerror = () => { URL.revokeObjectURL(url); done(); };
+    await audioEl.play();
+
+  } catch (e) {
+    if (e.name === 'AbortError') {
+      console.log('AudioGate: fetch aborted cleanly');
+    } else {
+      console.warn('TTS error:', e.message);
+    }
+    done();
+  }
 }
 
 
@@ -669,7 +735,7 @@ async function processUserInput(text) {
       }
     }
 
-    if (ttsEnabled) {
+    if (!AudioGate.isMuted()) {
       await speakKorean(conversationText);
     }
 

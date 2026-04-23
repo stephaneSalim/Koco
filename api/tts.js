@@ -4,7 +4,14 @@ export default async function handler(req, res) {
   }
 
   const { text } = req.body;
-  if (!text) return res.status(400).json({ error: 'text required' });
+
+  if (!text || text.trim().length < 2) {
+    console.log('TTS guard: empty/short text — ElevenLabs not called');
+    return res.json({ audio: null, skipped: true });
+  }
+
+  const safeText = text.trim().slice(0, 500);
+  console.log('TTS: sending', safeText.length, 'chars to ElevenLabs');
 
   const voiceId = 'sf8Bpb1IU97NI9BHSMRf';
 
@@ -17,7 +24,7 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        text,
+        text: safeText,
         model_id: 'eleven_multilingual_v2',
         voice_settings: {
           stability: 0.5,
