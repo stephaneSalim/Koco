@@ -830,8 +830,8 @@ async function processUserInput(text) {
   context.missionOverride = MissionMgr.getContext();
   context.selectedScenario = MissionMgr.selectedScenario || null;
 
-  if (STATE.mode === 'daily_life' && window.searchGlobalContext) {
-    context.globalContext = await window.searchGlobalContext(window.kocoUserId, text);
+  if (STATE.mode === 'daily_life' && window.fetchHybridContext) {
+    context.hybridContext = await window.fetchHybridContext(window.kocoUserId, text);
   }
 
   const systemPrompt = generateSystemPrompt(context, STATE.mode, STATE.gmsSentences, STATE.pageContext);

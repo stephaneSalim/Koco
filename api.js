@@ -788,47 +788,57 @@ Commence par : 오늘의 토론 주제는 "${unit?.title || '주제'}"입니다.
   }
 
   if (mode === 'daily_life') {
-    const gc = context.globalContext || { source: 'none', data: [] };
-    const gcData = gc.data || [];
-    const gcSource = gc.source || 'none';
+    const lessonData = context.hybridContext?.lessonData || [];
+    const gmsData    = context.hybridContext?.gmsData    || [];
 
-    let contextBlock;
-    if (gcSource === 'lesson_content' && gcData.length > 0) {
-      contextBlock = `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-CONNAISSANCES ACQUISES (RAG Personnel)
-Utilise UNIQUEMENT ces ressources pour répondre.
+    const myNotesBlock = lessonData.length > 0
+      ? `<my_notes>
+${lessonData.map(u => `  Unité: ${u.unit_id || ''}
+  Vocabulaire: ${(u.vocabulary || []).slice(0, 10).join(', ')}
+  Structures: ${(u.structures || []).slice(0, 5).join(', ')}`).join('\n')}
+</my_notes>`
+      : '<my_notes>vide</my_notes>';
+
+    const gmsRefBlock = gmsData.length > 0
+      ? `<gms_ref>
+${gmsData.map(s => `• ${s.text_kr} — ${s.text_en} [${s.situation_tag || ''}/${s.speech_level || ''}]`).join('\n')}
+</gms_ref>`
+      : '<gms_ref>vide</gms_ref>';
+
+    return `Tu es KoCo-Terrain, assistant de vie quotidienne en Corée.
+Tu aides à naviguer des situations réelles en utilisant
+UNIQUEMENT les ressources linguistiques personnelles de l'utilisateur.
+
+${myNotesBlock}
+
+${gmsRefBlock}
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${gcData.map(u => `[${u.unit_id}] ${u.theme || ''}
-Vocabulaire: ${(u.vocabulary || []).slice(0, 8).join(', ')}
-Structures: ${(u.structures || []).slice(0, 4).join(', ')}`).join('\n\n')}`;
-    } else if (gcSource === 'gms' && gcData.length > 0) {
-      contextBlock = `PHRASES GMS PERTINENTES (base personnelle) :
-${gcData.map(s => `• ${s.text_kr} (${s.text_en})`).join('\n')}
-Utilise ces phrases comme modèles de réponse.`;
-    } else {
-      contextBlock = "Aucun contenu trouvé. Encourage l'utilisateur à ajouter des photos 📸";
-    }
+RÈGLE DE RÉPONSE OBLIGATOIRE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-    return `Tu es KoCo-Terrain, un compagnon de vie quotidienne en Corée.
-Tu aides l'utilisateur à naviguer des situations réelles
-(supermarché, transport, médecin, restaurant...)
-en utilisant UNIQUEMENT le vocabulaire et les structures
-qu'il a déjà étudiés et stockés dans sa base personnelle.
+Si <my_notes> ET <gms_ref> ont du contenu :
+→ Donne DEUX variantes :
 
-RÈGLE ABSOLUE : Ne jamais introduire de vocabulaire
-ou structures non présents dans les CONNAISSANCES ACQUISES.
-Si le mot manque → dis-le clairement et suggère d'ajouter
-une photo du chapitre correspondant.
+📚 Variante Cours :
+[Utilise le vocabulaire de <my_notes> — registre SNU/JBNU]
 
-${contextBlock}
+🗣️ Variante Fluency :
+[Utilise les structures de <gms_ref> — registre natif naturel]
+
+Si <my_notes> est vide :
+→ Utilise <gms_ref> comme source unique
+→ Ne dis JAMAIS "je ne sais pas" ou "données insuffisantes"
+→ Formule une réponse naturelle basée sur GMS
+
+Si les deux sont vides :
+→ Réponds en coréen standard niveau 5A
+→ Suggère d'ajouter une photo 📸 pour enrichir la base
 
 ${correctionBlock}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-OUVERTURE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-"안녕하세요! 오늘 어떤 상황에서 도움이 필요하세요? 😊
-(슈퍼마켓, 병원, 식당, 교통... 무엇이든 말씀하세요!)"`;
+OUVERTURE :
+"안녕하세요! 오늘 어떤 상황에서 도움이 필요하세요? 😊"`;
   }
 
   // Default: freeChat

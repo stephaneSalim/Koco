@@ -433,3 +433,35 @@ async function searchGlobalContext(userId, userMessage) {
   return { source: 'gms', data: gmsData || [] };
 }
 window.searchGlobalContext = searchGlobalContext;
+
+async function fetchHybridContext(userId, userMessage) {
+  const keywords = userMessage
+    .split(/[\s,。、！？!?]+/)
+    .filter(w => w.length > 2)
+    .slice(0, 8);
+
+  if (!keywords.length) return { lessonData: [], gmsData: [] };
+
+  const orFilters = keywords.map(k => `text_kr.ilike.%${k}%`).join(',');
+
+  const [lessonResult, gmsResult] = await Promise.all([
+    window.supabaseClient
+      .rpc('search_global_context', {
+        user_id_input: userId,
+        search_terms: keywords
+      }),
+    window.supabaseClient
+      .from('gms_sentences')
+      .select('text_kr, text_en, situation_tag, speech_level, snu_unit')
+      .or(orFilters)
+      .limit(8)
+  ]);
+
+  const lessonData = lessonResult.data || [];
+  const gmsData = gmsResult.data || [];
+
+  console.log('Hybrid RAG:', lessonData.length, 'lesson_content |', gmsData.length, 'GMS phrases');
+
+  return { lessonData, gmsData };
+}
+window.fetchHybridContext = fetchHybridContext;
