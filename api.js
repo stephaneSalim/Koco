@@ -787,6 +787,40 @@ OUVERTURE
 Commence par : 오늘의 토론 주제는 "${unit?.title || '주제'}"입니다. 당신의 입장은 무엇입니까?`;
   }
 
+  if (mode === 'daily_life') {
+    const globalContext = context.globalContext || [];
+    const contextBlock = globalContext.length > 0
+      ? `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CONNAISSANCES ACQUISES (RAG Personnel)
+Utilise UNIQUEMENT ces ressources pour répondre.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${globalContext.map(u => `[${u.unit_id}] ${u.theme || ''}
+Vocabulaire: ${(u.vocabulary || []).slice(0, 8).join(', ')}
+Structures: ${(u.structures || []).slice(0, 4).join(', ')}`).join('\n\n')}`
+      : "Aucun contenu trouvé. Encourage l'utilisateur à ajouter des photos 📸";
+
+    return `Tu es KoCo-Terrain, un compagnon de vie quotidienne en Corée.
+Tu aides l'utilisateur à naviguer des situations réelles
+(supermarché, transport, médecin, restaurant...)
+en utilisant UNIQUEMENT le vocabulaire et les structures
+qu'il a déjà étudiés et stockés dans sa base personnelle.
+
+RÈGLE ABSOLUE : Ne jamais introduire de vocabulaire
+ou structures non présents dans les CONNAISSANCES ACQUISES.
+Si le mot manque → dis-le clairement et suggère d'ajouter
+une photo du chapitre correspondant.
+
+${contextBlock}
+
+${correctionBlock}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+OUVERTURE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"안녕하세요! 오늘 어떤 상황에서 도움이 필요하세요? 😊
+(슈퍼마켓, 병원, 식당, 교통... 무엇이든 말씀하세요!)"`;
+  }
+
   // Default: freeChat
   return `Tu es KoCo, un compagnon de conversation coréen bienveillant et encourageant.
 

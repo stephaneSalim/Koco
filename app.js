@@ -829,6 +829,11 @@ async function processUserInput(text) {
   context.unitId = STATE.unitId;
   context.missionOverride = MissionMgr.getContext();
   context.selectedScenario = MissionMgr.selectedScenario || null;
+
+  if (STATE.mode === 'daily_life' && window.searchGlobalContext) {
+    context.globalContext = await window.searchGlobalContext(window.kocoUserId, text);
+  }
+
   const systemPrompt = generateSystemPrompt(context, STATE.mode, STATE.gmsSentences, STATE.pageContext);
 
   STATE.isProcessing = true;
@@ -1728,6 +1733,7 @@ function showMissionSheet(sheet) {
 function setMode(mode) {
   document.getElementById('btnSpeak')?.classList.toggle('active', mode === 'speak');
   document.getElementById('btnMission')?.classList.toggle('active', mode === 'mission');
+  document.getElementById('btnDailyLife')?.classList.toggle('active', mode === 'daily_life');
 
   if (mode === 'speak') {
     if (STATE.mode === 'mission') {
@@ -1739,6 +1745,10 @@ function setMode(mode) {
   } else if (mode === 'mission') {
     toggleMissionMode();
     showModeNotification('🎯', 'Mode Examen', 'Proctor strict — tolérance zéro');
+  } else if (mode === 'daily_life') {
+    if (STATE.mode === 'mission') MissionMgr.deactivate();
+    STATE.mode = 'daily_life';
+    showModeNotification('🌍', 'Mode Terrain', 'Vie quotidienne — RAG personnel actif');
   }
 
   console.log('Mode switched to:', mode);
@@ -2412,6 +2422,22 @@ function addSystemMessage(text) {
   return el;
 }
 
+function showOCRWarning(score) {
+  const warn = document.createElement('div');
+  warn.style.cssText = `
+    background: rgba(229,57,53,0.08);
+    border-left: 4px solid #e53935;
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin: 8px 12px;
+    font-size: 13px;
+    color: #e53935;
+    font-weight: 600;
+  `;
+  warn.textContent = `⚠️ Qualité OCR faible (${score}/10) — vérifie la clarté de ta photo.`;
+  elements.conversation?.appendChild(warn);
+}
+
 async function mergeOcrContent(unitId, newCtx) {
   const existing = window.getLessonContent ? await window.getLessonContent(unitId) : null;
   if (!existing) return newCtx;
@@ -2482,6 +2508,11 @@ function initPhotoInput() {
         });
         if (!resp.ok) throw new Error('analyze-image failed');
         const ctx = await resp.json();
+
+        // OCR confidence warning
+        if (ctx.ocr_confidence && ctx.ocr_confidence < 5) {
+          showOCRWarning(ctx.ocr_confidence);
+        }
 
         // Merge with existing content (append, no duplicates)
         const merged = await mergeOcrContent(targetUnitId, ctx);

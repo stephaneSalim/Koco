@@ -39,12 +39,15 @@ export default async function handler(req, res) {
 Analyse cette page du manuel SNU (unité: ${snuUnit || 'inconnue'}).
 Extrais en JSON :
 {
+  "ocr_confidence": 8,
   "vocabulary": ["mot1", "mot2"],
   "structures": ["structure1"],
   "theme": "thème principal de la page",
   "level": "3A/3B/4A/4B/5A/5B",
   "conversation_starters": ["question1", "question2", "question3"]
 }
+ocr_confidence : note de 1 à 10 évaluant la lisibilité de l'image
+(10 = texte parfaitement net, 1 = texte illisible ou image floue).
 Réponds UNIQUEMENT avec le JSON, rien d'autre.`
           }
         ]

@@ -396,3 +396,27 @@ function invalidateHealthCache(unitId) {
   console.log('Health cache invalidated for:', unitId);
 }
 window.invalidateHealthCache = invalidateHealthCache;
+
+async function searchGlobalContext(userId, userMessage) {
+  const keywords = userMessage
+    .split(/[\s,。、！？!?]+/)
+    .filter(w => w.length > 2)
+    .slice(0, 8);
+
+  if (!keywords.length) return [];
+
+  const { data, error } = await window.supabaseClient
+    .rpc('search_global_context', {
+      user_id_input: userId,
+      search_terms: keywords
+    });
+
+  if (error) {
+    console.error('searchGlobalContext error:', JSON.stringify(error));
+    return [];
+  }
+
+  console.log('Global context found:', data?.length, 'units | keywords:', keywords);
+  return data || [];
+}
+window.searchGlobalContext = searchGlobalContext;
