@@ -1143,6 +1143,14 @@ function selectUnit(unitId, unitObj) {
 
 async function updateContextGuard(unitId) {
   if (!window.getDataHealthCached) return;
+
+  // In daily_life mode the GMS bank (3000 sentences) is always available
+  if (STATE.mode === 'daily_life') {
+    hideContextWarning();
+    showGMSNotice();
+    return;
+  }
+
   const health = await window.getDataHealthCached(unitId);
 
   updateHeaderHealthIndicator(health);
@@ -1208,6 +1216,27 @@ function showContextWarning(health) {
 
 function hideContextWarning() {
   const el = document.getElementById('contextWarning-header');
+  if (el) el.style.display = 'none';
+}
+
+function showGMSNotice() {
+  const id = 'gmsNotice-header';
+  let notice = document.getElementById(id);
+  if (!notice) {
+    notice = document.createElement('div');
+    notice.id = id;
+    notice.className = 'context-warning-banner';
+    document.getElementById('appHeader')?.insertAdjacentElement('afterend', notice);
+  }
+  notice.style.background = 'rgba(0,168,132,0.08)';
+  notice.style.color = '#00a884';
+  notice.style.borderBottomColor = '#00a88430';
+  notice.textContent = '🌍 Mode Terrain — 3000 phrases GMS disponibles';
+  notice.style.display = 'block';
+}
+
+function hideGMSNotice() {
+  const el = document.getElementById('gmsNotice-header');
   if (el) el.style.display = 'none';
 }
 
@@ -1740,14 +1769,18 @@ function setMode(mode) {
       updateMode('freeChat');
       elements.navTabs.forEach(t => t.classList.toggle('active', t.dataset.mode === 'freeChat'));
     }
+    hideGMSNotice();
     STATE.mode = 'speak';
     showModeNotification('💬', 'Mode Tutorat', 'Coach flexible — correction douce');
   } else if (mode === 'mission') {
+    hideGMSNotice();
     toggleMissionMode();
     showModeNotification('🎯', 'Mode Examen', 'Proctor strict — tolérance zéro');
   } else if (mode === 'daily_life') {
     if (STATE.mode === 'mission') MissionMgr.deactivate();
     STATE.mode = 'daily_life';
+    hideContextWarning();
+    showGMSNotice();
     showModeNotification('🌍', 'Mode Terrain', 'Vie quotidienne — RAG personnel actif');
   }
 

@@ -788,16 +788,26 @@ Commence par : 오늘의 토론 주제는 "${unit?.title || '주제'}"입니다.
   }
 
   if (mode === 'daily_life') {
-    const globalContext = context.globalContext || [];
-    const contextBlock = globalContext.length > 0
-      ? `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    const gc = context.globalContext || { source: 'none', data: [] };
+    const gcData = gc.data || [];
+    const gcSource = gc.source || 'none';
+
+    let contextBlock;
+    if (gcSource === 'lesson_content' && gcData.length > 0) {
+      contextBlock = `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 CONNAISSANCES ACQUISES (RAG Personnel)
 Utilise UNIQUEMENT ces ressources pour répondre.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${globalContext.map(u => `[${u.unit_id}] ${u.theme || ''}
+${gcData.map(u => `[${u.unit_id}] ${u.theme || ''}
 Vocabulaire: ${(u.vocabulary || []).slice(0, 8).join(', ')}
-Structures: ${(u.structures || []).slice(0, 4).join(', ')}`).join('\n\n')}`
-      : "Aucun contenu trouvé. Encourage l'utilisateur à ajouter des photos 📸";
+Structures: ${(u.structures || []).slice(0, 4).join(', ')}`).join('\n\n')}`;
+    } else if (gcSource === 'gms' && gcData.length > 0) {
+      contextBlock = `PHRASES GMS PERTINENTES (base personnelle) :
+${gcData.map(s => `• ${s.text_kr} (${s.text_en})`).join('\n')}
+Utilise ces phrases comme modèles de réponse.`;
+    } else {
+      contextBlock = "Aucun contenu trouvé. Encourage l'utilisateur à ajouter des photos 📸";
+    }
 
     return `Tu es KoCo-Terrain, un compagnon de vie quotidienne en Corée.
 Tu aides l'utilisateur à naviguer des situations réelles

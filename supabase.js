@@ -403,20 +403,33 @@ async function searchGlobalContext(userId, userMessage) {
     .filter(w => w.length > 2)
     .slice(0, 8);
 
-  if (!keywords.length) return [];
+  if (!keywords.length) return { source: 'none', data: [] };
 
-  const { data, error } = await window.supabaseClient
+  // Priority 1: lesson_content (user's uploaded pages)
+  const { data: lessonData, error } = await window.supabaseClient
     .rpc('search_global_context', {
       user_id_input: userId,
       search_terms: keywords
     });
 
-  if (error) {
-    console.error('searchGlobalContext error:', JSON.stringify(error));
-    return [];
+  if (error) console.error('searchGlobalContext error:', JSON.stringify(error));
+
+  if (lessonData && lessonData.length > 0) {
+    console.log('Global context: lesson_content', lessonData.length, 'units | keywords:', keywords);
+    return { source: 'lesson_content', data: lessonData };
   }
 
-  console.log('Global context found:', data?.length, 'units | keywords:', keywords);
-  return data || [];
+  // Priority 2: GMS fallback
+  console.log('lesson_content empty → fallback to GMS | keywords:', keywords);
+
+  const orFilters = keywords.map(k => `text_kr.ilike.%${k}%`).join(',');
+
+  const { data: gmsData } = await window.supabaseClient
+    .from('gms_sentences')
+    .select('text_kr, text_en, situation_tag, speech_level, snu_unit')
+    .or(orFilters)
+    .limit(10);
+
+  return { source: 'gms', data: gmsData || [] };
 }
 window.searchGlobalContext = searchGlobalContext;
