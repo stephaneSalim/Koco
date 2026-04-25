@@ -85,15 +85,28 @@ async function updateRow(gmsId, speechLevel, situationTag) {
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
-  console.log('Fetching all GMS sentences...');
+  console.log('Fetching all GMS sentences (paginated)...');
 
-  const { data: rows, error } = await supabase
-    .from('gms_sentences')
-    .select('gms_id, text_kr')
-    .order('gms_id');
+  const PAGE_SIZE = 1000;
+  let rows = [];
+  let from = 0;
 
-  if (error) { console.error('Fetch error:', error.message); process.exit(1); }
-  if (!rows?.length) { console.error('No rows returned.'); process.exit(1); }
+  while (true) {
+    const { data, error } = await supabase
+      .from('gms_sentences')
+      .select('gms_id, text_kr')
+      .order('gms_id')
+      .range(from, from + PAGE_SIZE - 1);
+
+    if (error) { console.error('Fetch error:', error.message); process.exit(1); }
+    if (!data || data.length === 0) break;
+    rows = [...rows, ...data];
+    console.log(`  Fetched ${rows.length} so far...`);
+    if (data.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+
+  if (!rows.length) { console.error('No rows returned.'); process.exit(1); }
 
   console.log(`Fetched ${rows.length} sentences. Batches of ${BATCH_SIZE}...\n`);
 
