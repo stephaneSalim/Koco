@@ -64,7 +64,10 @@ const STATE = {
   isSpeaking: false,
   messageCount: 0,
   sessionCorrections: [],
-  pageContext: null
+  pageContext: null,
+  currentSNUMission: null,
+  selectedMissionFormat: null,
+  needsFrenchExplanation: false
 };
 
 // Normalize a Supabase snu_units row to a stable unit object used throughout the app
@@ -834,7 +837,14 @@ async function processUserInput(text) {
     context.hybridContext = await window.fetchHybridContext(window.kocoUserId, text);
   }
 
+  // French valve: user asked for explanation inside SNU mission
+  if (text.includes('설명해 주세요') && STATE.currentSNUMission) {
+    STATE.needsFrenchExplanation = true;
+  }
+  context.needsFrenchExplanation = STATE.needsFrenchExplanation;
+
   const systemPrompt = generateSystemPrompt(context, STATE.mode, STATE.gmsSentences, STATE.pageContext);
+  STATE.needsFrenchExplanation = false; // reset after prompt built
 
   STATE.isProcessing = true;
   setMicState('processing');
@@ -2469,6 +2479,121 @@ function showOCRWarning(score) {
   `;
   warn.textContent = `⚠️ Qualité OCR faible (${score}/10) — vérifie la clarté de ta photo.`;
   elements.conversation?.appendChild(warn);
+}
+
+async function generateSNUMission() {
+  if (!STATE.unitId || !window.kocoUserId) return;
+
+  const loader = document.createElement('div');
+  loader.id = 'missionLoader';
+  loader.style.cssText = `
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    color: white; padding: 16px; border-radius: 12px;
+    margin: 8px 0; text-align: center; font-size: 13px;
+  `;
+  loader.innerHTML = `
+    <div>🎓 SNU Graduate Engine 가동 중...</div>
+    <div style="font-size:11px;opacity:0.7;margin-top:4px">${STATE.unitId} 데이터 분석 중</div>
+  `;
+  elements.conversation.appendChild(loader);
+  loader.scrollIntoView({ behavior: 'smooth' });
+
+  const endpoint = (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost')
+    ? 'http://localhost:3000/api/generate-mission'
+    : '/api/generate-mission';
+
+  try {
+    const resp = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ unitId: STATE.unitId, userId: window.kocoUserId })
+    });
+    const { mission, error } = await resp.json();
+    loader.remove();
+    if (error) { showModeNotification('❌', '미션 생성 실패', error); return; }
+    showSNUMissionCard(mission);
+  } catch (e) {
+    loader.remove();
+    console.error('generateSNUMission error:', e);
+    showAlert('error', '❌ Mission generation failed');
+  }
+}
+
+function showSNUMissionCard(mission) {
+  const card = document.createElement('div');
+  card.className = 'snu-mission-card';
+
+  card.innerHTML = `
+    <div class="snu-mission-label">🎓 SNU GRADUATE MISSION</div>
+    <div class="snu-mission-title">${mission.title}</div>
+    <div class="snu-mission-context">${mission.academic_context}</div>
+    <div class="snu-mission-section">
+      <div class="snu-section-label">형식 선택</div>
+      <div class="snu-format-btns">
+        ${mission.format_options.map(f => `
+          <button class="snu-format-btn" onclick="selectMissionFormat(this,'${f}')">${f}</button>
+        `).join('')}
+      </div>
+    </div>
+    <div class="snu-mission-requirements">
+      <div class="snu-req-label">필수 포함 요소</div>
+      <div class="snu-req-row">
+        <span class="snu-req-type">문법:</span>
+        ${mission.requirements.grammar.map(g => `<span class="snu-chip snu-chip--grammar">${g}</span>`).join('')}
+      </div>
+      <div class="snu-req-row">
+        <span class="snu-req-type">어휘:</span>
+        ${mission.requirements.vocabulary.map(v => `<span class="snu-chip snu-chip--vocab">${v}</span>`).join('')}
+      </div>
+    </div>
+    <div class="snu-mission-instructions">${mission.instructions}</div>
+    ${mission.evaluation_criteria ? `<div class="snu-mission-eval"><strong>평가 기준:</strong> ${mission.evaluation_criteria}</div>` : ''}
+    <div class="snu-mission-help">💡 ${mission.help_command}</div>
+    <button class="snu-start-btn" onclick="startSNUMission()">미션 시작 →</button>
+  `;
+
+  elements.conversation.appendChild(card);
+  card.scrollIntoView({ behavior: 'smooth' });
+  STATE.currentSNUMission = mission;
+}
+
+function selectMissionFormat(btn, format) {
+  btn.closest('.snu-format-btns').querySelectorAll('.snu-format-btn').forEach(b => {
+    b.classList.remove('active');
+  });
+  btn.classList.add('active');
+  STATE.selectedMissionFormat = format;
+}
+
+function startSNUMission() {
+  if (!STATE.currentSNUMission) return;
+  const format = STATE.selectedMissionFormat || STATE.currentSNUMission.format_options[0];
+
+  STATE.mode = 'mission';
+  document.getElementById('btnMission')?.classList.add('active');
+  document.getElementById('btnSpeak')?.classList.remove('active');
+  document.getElementById('btnDailyLife')?.classList.remove('active');
+
+  MissionMgr.activate(STATE.unitId);
+  MissionMgr.override = {
+    ...(MissionMgr.override || {}),
+    target_grammar: STATE.currentSNUMission.requirements.grammar,
+    vocabulary: STATE.currentSNUMission.requirements.vocabulary,
+    mission_brief: `${format} 형식으로 작성하세요.`,
+    difficulty_level: '5B',
+    severity: 'academic',
+    tolerance: 'zero',
+    forbidden_patterns: ['그리고', '그래서', '그냥', '좀'],
+    min_clauses: 3
+  };
+
+  const startMsg = `미션을 시작합니다. 형식: ${format}
+필수 구조: ${STATE.currentSNUMission.requirements.grammar.join(', ')}
+필수 어휘: ${STATE.currentSNUMission.requirements.vocabulary.join(', ')}
+시작하세요 →`;
+
+  addMessage('assistant', startMsg);
+  if (!AudioGate.isMuted()) speakKorean(startMsg);
 }
 
 async function mergeOcrContent(unitId, newCtx) {

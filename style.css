@@ -3026,3 +3026,137 @@ input:focus-visible {
 }
 
 .mode-btn:disabled:active::after { opacity: 0; }
+
+/* ── SNU Graduate Mission Card ────────────────── */
+.snu-mission-card {
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  color: white;
+  border-radius: 16px;
+  padding: 20px;
+  margin: 4px 0;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+}
+
+.snu-mission-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #667eea;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+
+.snu-mission-title {
+  font-size: 17px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+.snu-mission-context {
+  background: rgba(255,255,255,0.05);
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 14px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.snu-mission-section { margin-bottom: 14px; }
+
+.snu-section-label {
+  font-size: 11px;
+  opacity: 0.6;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.snu-format-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.snu-format-btn {
+  background: rgba(102,126,234,0.2);
+  border: 1px solid #667eea;
+  color: white;
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.snu-format-btn.active,
+.snu-format-btn:active {
+  background: #667eea;
+  font-weight: 700;
+}
+
+.snu-mission-requirements {
+  background: rgba(255,107,53,0.15);
+  border: 1px solid rgba(255,107,53,0.3);
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 14px;
+}
+
+.snu-req-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #ff6b35;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.snu-req-row { font-size: 12px; margin-bottom: 6px; }
+
+.snu-req-type { opacity: 0.7; margin-right: 4px; }
+
+.snu-chip {
+  display: inline-block;
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: 11px;
+  margin: 2px;
+}
+
+.snu-chip--grammar { background: rgba(255,107,53,0.2); }
+.snu-chip--vocab   { background: rgba(102,126,234,0.2); }
+
+.snu-mission-instructions {
+  font-size: 13px;
+  line-height: 1.7;
+  margin-bottom: 14px;
+  opacity: 0.9;
+}
+
+.snu-mission-eval {
+  border-top: 1px solid rgba(255,255,255,0.1);
+  padding-top: 12px;
+  margin-bottom: 14px;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.snu-mission-help {
+  text-align: center;
+  font-size: 11px;
+  opacity: 0.5;
+  margin-bottom: 12px;
+}
+
+.snu-start-btn {
+  width: 100%;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 14px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.snu-start-btn:active { background: #5a6fd6; }

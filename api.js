@@ -474,6 +474,15 @@ THESIS MODE [NIVEAU 6]
 ` : '';
 
 
+    const frenchValve = context.needsFrenchExplanation
+      ? `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+EXCEPTION UNIQUE — EXPLICATION FRANÇAISE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+L'utilisateur a demandé une explication ("설명해 주세요").
+Réponds en français pour CE message uniquement.
+Explique le point de blocage clairement, puis reprends en coréen académique.\n`
+      : '';
+
     return `당신은 KoCo-Expert입니다.
 TOPIK ${missionCfg.difficulty_level} 전문 지도 교수.
 모델: 연구실 지도교수 — 엄격하고 정밀하며 결과 중심.
@@ -648,7 +657,8 @@ ${missionCfg.mission_brief}
 → 번호를 선택하거나 직접 주제를 제안하세요."
 
 RÈGLE : Les 3 scénarios doivent être spécifiques au thème de l'unité (${unitTitle}) et forcer l'utilisation naturelle des structures cibles.
-Ne génère JAMAIS des scénarios génériques — crée des situations réelles liées à ${unitTitle}.`;
+Ne génère JAMAIS des scénarios génériques — crée des situations réelles liées à ${unitTitle}.
+${frenchValve}`;
   }
 
   if (mode === 'speak') {
