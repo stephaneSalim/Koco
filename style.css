@@ -3160,3 +3160,143 @@ input:focus-visible {
 }
 
 .snu-start-btn:active { background: #5a6fd6; }
+
+/* ── Knowledge Snapshot ───────────────────────────────────────────────────── */
+
+.snapshot-btn {
+  width: 100%;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  color: #e0e0e0;
+  border: 1px solid #2a2a4a;
+  border-radius: 12px;
+  padding: 14px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.3px;
+  -webkit-tap-highlight-color: transparent;
+  margin-bottom: 12px;
+}
+.snapshot-btn:active { opacity: 0.8; }
+.snapshot-btn:disabled { opacity: 0.5; cursor: default; }
+
+.ks-card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.ks-section {
+  margin-bottom: 18px;
+}
+
+.ks-section-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #888;
+  margin-bottom: 10px;
+}
+
+.ks-unit {
+  margin-bottom: 10px;
+}
+
+.ks-unit-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.ks-unit-meta {
+  font-size: 11px;
+  font-weight: 400;
+  color: #aaa;
+  white-space: nowrap;
+}
+
+.ks-bar-track {
+  height: 6px;
+  background: #f0f0f0;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.ks-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+.ks-pain-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px;
+  background: #fff8f0;
+  border: 1px solid #ffe0b2;
+  border-radius: 10px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ks-pain-item:active { background: #fff3e0; }
+
+.ks-pain-original {
+  font-size: 13px;
+  font-weight: 600;
+  color: #c0392b;
+  text-decoration: line-through;
+}
+
+.ks-pain-arrow {
+  font-size: 12px;
+  color: #aaa;
+}
+
+.ks-pain-fixed {
+  font-size: 13px;
+  font-weight: 600;
+  color: #27ae60;
+}
+
+.ks-pain-note {
+  width: 100%;
+  font-size: 11px;
+  color: #888;
+  margin-top: 2px;
+}
+
+.ks-error-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #fce4ec;
+  border: 1px solid #f8bbd0;
+  border-radius: 20px;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: #c2185b;
+  margin: 0 6px 6px 0;
+}
+
+.ks-error-count {
+  font-weight: 700;
+  color: #ad1457;
+}
+
+.ks-timestamp {
+  font-size: 11px;
+  color: #bbb;
+  text-align: right;
+  margin-top: 8px;
+}

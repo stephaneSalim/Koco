@@ -67,7 +67,8 @@ const STATE = {
   pageContext: null,
   currentSNUMission: null,
   selectedMissionFormat: null,
-  needsFrenchExplanation: false
+  needsFrenchExplanation: false,
+  knowledgeSnapshot: null
 };
 
 // Normalize a Supabase snu_units row to a stable unit object used throughout the app
@@ -842,6 +843,7 @@ async function processUserInput(text) {
     STATE.needsFrenchExplanation = true;
   }
   context.needsFrenchExplanation = STATE.needsFrenchExplanation;
+  context.knowledgeSnapshot = STATE.knowledgeSnapshot;
 
   const systemPrompt = generateSystemPrompt(context, STATE.mode, STATE.gmsSentences, STATE.pageContext);
   STATE.needsFrenchExplanation = false; // reset after prompt built
@@ -2595,6 +2597,101 @@ function startSNUMission() {
   addMessage('assistant', startMsg);
   if (!AudioGate.isMuted()) speakKorean(startMsg);
 }
+
+// ── Knowledge Snapshot ─────────────────────────────────────────────────────
+
+async function fetchKnowledgeSnapshot() {
+  const snapshotEndpoint = (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost')
+    ? 'http://localhost:3000/api/knowledge-snapshot'
+    : '/api/knowledge-snapshot';
+
+  const btn = document.getElementById('snapshotBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ 분석 중...'; }
+
+  try {
+    const resp = await fetch(snapshotEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: window.kocoUserId })
+    });
+
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const { snapshot } = await resp.json();
+    STATE.knowledgeSnapshot = snapshot;
+    renderKnowledgeSnapshot(snapshot);
+  } catch (e) {
+    console.error('fetchKnowledgeSnapshot error:', e);
+    const container = document.getElementById('snapshotContainer');
+    if (container) container.innerHTML = '<p class="stats-empty">스냅샷을 불러오지 못했습니다.</p>';
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🧠 Knowledge Snapshot'; }
+  }
+}
+
+function renderKnowledgeSnapshot(snapshot) {
+  const container = document.getElementById('snapshotContainer');
+  if (!container) return;
+
+  const { units = [], painPoints = [], topErrors = [] } = snapshot;
+
+  const masteryBars = units.length === 0
+    ? '<p class="stats-empty">아직 업로드된 단원이 없어요.</p>'
+    : units.map(u => {
+        const pct = Math.min(100, u.mastery);
+        const color = pct < 30 ? '#e53935' : pct < 60 ? '#f7931e' : '#00a884';
+        return `<div class="ks-unit">
+          <div class="ks-unit-label">${u.theme || u.unit_id} <span class="ks-unit-meta">${u.vocab_count}어 · ${u.structure_count}구조 · ${u.session_count}세션</span></div>
+          <div class="ks-bar-track"><div class="ks-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+        </div>`;
+      }).join('');
+
+  const painHTML = painPoints.length === 0
+    ? '<p class="stats-empty">교정 항목 없음</p>'
+    : painPoints.map(p => `
+        <div class="ks-pain-item" onclick="activateRecallMode(${JSON.stringify(JSON.stringify(p))})">
+          <span class="ks-pain-original">${p.original}</span>
+          <span class="ks-pain-arrow">→</span>
+          <span class="ks-pain-fixed">${p.fixed}</span>
+          <span class="ks-pain-note">${p.note || ''}</span>
+        </div>`).join('');
+
+  const errorHTML = topErrors.length === 0 ? ''
+    : `<div class="ks-section">
+        <h4 class="ks-section-title">🔁 반복 오류 패턴</h4>
+        ${topErrors.map(e => `<div class="ks-error-tag">${e.note} <span class="ks-error-count">×${e.count}</span></div>`).join('')}
+       </div>`;
+
+  container.innerHTML = `
+    <div class="ks-card">
+      <div class="ks-section">
+        <h4 class="ks-section-title">📚 단원별 숙달도</h4>
+        ${masteryBars}
+      </div>
+      <div class="ks-section">
+        <h4 class="ks-section-title">⚠️ 취약점 (탭하면 드릴 시작)</h4>
+        ${painHTML}
+      </div>
+      ${errorHTML}
+      <p class="ks-timestamp">생성: ${new Date(snapshot.generatedAt).toLocaleString('ko-KR')}</p>
+    </div>`;
+}
+
+function activateRecallMode(jsonStr) {
+  let painPoint;
+  try { painPoint = JSON.parse(jsonStr); } catch { return; }
+
+  STATE.knowledgeSnapshot = STATE.knowledgeSnapshot || {};
+  STATE.knowledgeSnapshot.activeDrill = painPoint;
+
+  updateMode('freeChat');
+  const navTab = Array.from(document.querySelectorAll('.nav-tab')).find(t => t.dataset.mode === 'freeChat');
+  if (navTab) navTab.click();
+
+  const drillMsg = `📌 취약점 드릴 시작\n오류: ${painPoint.original}\n교정: ${painPoint.fixed}\n${painPoint.note ? `힌트: ${painPoint.note}\n` : ''}이 표현을 사용해서 문장을 만들어 보세요!`;
+  addMessage('assistant', drillMsg);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 async function mergeOcrContent(unitId, newCtx) {
   const existing = window.getLessonContent ? await window.getLessonContent(unitId) : null;

@@ -852,6 +852,16 @@ OUVERTURE :
   }
 
   // Default: freeChat
+  const snapshot = context.knowledgeSnapshot;
+  const snapshotBlock = snapshot?.painPoints?.length > 0
+    ? `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+POINTS FAIBLES CONNUS (priorise ces structures dans tes corrections)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${snapshot.painPoints.map(p => `- "${p.original}" → "${p.fixed}" [${p.note || ''}]`).join('\n')}
+Si l'utilisateur reproduit une de ces erreurs, signale-la immédiatement.`
+    : '';
+
   return `Tu es KoCo, un compagnon de conversation coréen bienveillant et encourageant.
 
 NIVEAU : 3급-4급 (intermédiaire)
@@ -888,6 +898,7 @@ PHRASES GMS DISPONIBLES :
 ${gmsLines}
 ${vocabLines ? `\nVOCABULAIRE DE L'UNITÉ :\n${vocabLines}` : ''}
 ${pageContextBlock}
+${snapshotBlock}
 ${correctionBlock}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
