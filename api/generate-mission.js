@@ -31,9 +31,51 @@ export default async function handler(req, res) {
   const vocab = lesson.vocabulary || [];
   const structures = lesson.structures || [];
 
+  // Passe 2 — Filtrage sémantique (Haiku, léger)
+  let filteredVocab = vocab;
+  let filteredStructures = structures;
+
+  try {
+    const filterResponse = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 300,
+        messages: [{
+          role: 'user',
+          content: `Thème central : ${lesson.theme}
+Liste vocabulaire : ${vocab.join(', ')}
+Liste structures : ${structures.join(', ')}
+
+Retourne UNIQUEMENT les éléments sémantiquement cohérents avec le thème.
+JSON pur sans backticks :
+{ "filtered_vocab": [], "filtered_structures": [] }`
+        }]
+      })
+    });
+
+    const filterData = await filterResponse.json();
+    const filterText = filterData.content?.[0]?.text || '';
+    const clean = filterText.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(clean);
+
+    filteredVocab = parsed.filtered_vocab?.length >= 3 ? parsed.filtered_vocab : vocab;
+    filteredStructures = parsed.filtered_structures?.length >= 2 ? parsed.filtered_structures : structures;
+
+    console.log('Semantic filter:', vocab.length, '→', filteredVocab.length, 'vocab |',
+      structures.length, '→', filteredStructures.length, 'structures');
+  } catch (e) {
+    console.warn('Filter parse failed, using raw data:', e.message);
+  }
+
   const shuffle = arr => [...arr].sort(() => Math.random() - 0.5);
-  const selectedVocab = shuffle(vocab).slice(0, 8);
-  const selectedStructures = shuffle(structures).slice(0, 5);
+  const selectedVocab = shuffle(filteredVocab).slice(0, 8);
+  const selectedStructures = shuffle(filteredStructures).slice(0, 5);
 
   if (selectedVocab.length < 3 || selectedStructures.length < 2) {
     return res.status(422).json({
