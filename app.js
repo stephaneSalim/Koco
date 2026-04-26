@@ -2498,12 +2498,20 @@ async function mergeOcrContent(unitId, newCtx) {
     if (!mergedStarters.some(s => fp(s) === fp(item))) mergedStarters.push(item);
   }
 
+  const mergedSnippets = [...(existing.context_snippets || [])];
+  for (const item of (newCtx.context_snippets || [])) {
+    if (!mergedSnippets.some(s => fp(s) === fp(item))) mergedSnippets.push(item);
+  }
+
   return {
     vocabulary: mergedVocab,
     structures: mergedStructures,
     theme,
     level: newCtx.level || existing.level || '',
-    conversation_starters: mergedStarters
+    conversation_starters: mergedStarters,
+    context_snippets: mergedSnippets,
+    category: newCtx.category || existing.category || '',
+    ocr_confidence: newCtx.ocr_confidence ?? existing.ocr_confidence ?? 0.5
   };
 }
 
@@ -2537,14 +2545,15 @@ function initPhotoInput() {
         const resp = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ imageBase64: base64, snuUnit })
+          body: JSON.stringify({ imageBase64: base64, unitId: targetUnitId })
         });
         if (!resp.ok) throw new Error('analyze-image failed');
         const ctx = await resp.json();
 
-        // OCR confidence warning
-        if (ctx.ocr_confidence && ctx.ocr_confidence < 5) {
-          showOCRWarning(ctx.ocr_confidence);
+        // OCR confidence check (0.0–1.0 scale)
+        const confidence = ctx.ocr_confidence ?? 0.5;
+        if (confidence < 0.5) {
+          showOCRWarning(Math.round(confidence * 100));
         }
 
         // Merge with existing content (append, no duplicates)
@@ -2581,11 +2590,23 @@ function initPhotoInput() {
         const photoBtn = document.querySelector(`.unit-selector-item__photo[data-unit-id="${targetUnitId}"]`);
         if (photoBtn) photoBtn.classList.add('has-content');
 
+        // Enriched notification
+        const vocab = (ctx.vocabulary || []).length;
+        const structs = (ctx.structures || []).length;
+        const snippets = (ctx.context_snippets || []).length;
+        const confidencePct = Math.round(confidence * 100);
+        const category = ctx.category || '';
+        const lowQuality = confidence < 0.5;
+
+        const msg = lowQuality
+          ? `⚠️ Qualité faible (${confidencePct}%) — retake la photo pour de meilleurs résultats`
+          : `✅ ${vocab} mots · ${structs} structures · ${snippets} exemples · confiance: ${confidencePct}%${category ? ` [${category}]` : ''}`;
+
         if (indicator) {
-          indicator.textContent = '✅ Page analysée ! Vocabulaire et structures chargés.';
-          indicator.classList.add('message--system-ok');
+          indicator.textContent = msg;
+          if (!lowQuality) indicator.classList.add('message--system-ok');
         } else {
-          showAlert('success', `✅ Page analysée pour ${unit?.title || targetUnitId}`);
+          showAlert(lowQuality ? 'error' : 'success', msg);
         }
       } catch (err) {
         console.error('Photo analysis error:', err);

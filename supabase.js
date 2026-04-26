@@ -161,6 +161,9 @@ async function saveLessonContent(unitId, content) {
       theme: content.theme || '',
       level: content.level || '',
       conversation_starters: content.conversation_starters || [],
+      context_snippets: content.context_snippets || [],
+      category: content.category || '',
+      ocr_confidence: content.ocr_confidence ?? null,
       updated_at: new Date().toISOString()
     }, { onConflict: 'unit_id,user_id', ignoreDuplicates: false });
 
