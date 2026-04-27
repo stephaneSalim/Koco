@@ -139,6 +139,8 @@
         </div>
       </div>
 
+      <div id="mapScreen" class="map-screen hidden"></div>
+
       <div class="conversation"></div>
 
       <div class="transcription-panel">
@@ -204,6 +206,10 @@
         <span class="nav-tab__icon">🎯</span>
         <span class="nav-tab__label">미션</span>
       </button>
+      <button class="nav-tab" data-mode="map" type="button">
+        <span class="nav-tab__icon">🗺️</span>
+        <span class="nav-tab__label">지도</span>
+      </button>
       <button class="nav-tab" data-mode="stats" type="button">
         <span class="nav-tab__icon">📈</span>
         <span class="nav-tab__label">통계</span>
@@ -230,5 +236,494 @@
   <script src="data.js"></script>
   <script src="api.js"></script>
   <script src="app.js"></script>
+
+  <!-- Learning Map — React + Babel -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script type="text/babel" data-presets="react">
+    // ── KoCo Learning Map ────────────────────────────────────────────────────
+    const { useState, useEffect, useRef } = React;
+
+    const BRAND = '#667eea';
+    const BRAND_DEEP = '#5468d4';
+    const VIOLET = '#764ba2';
+    const GRADIENT = `linear-gradient(135deg, ${BRAND} 0%, ${VIOLET} 100%)`;
+    const LEVELS = ['3A','3B','4A','4B','5A','5B','6A','6B'];
+
+    const THEMES = {
+      langue:        { label: '언어',  icon: s => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 5h11M9 3v2M11 5c0 4-3 7-7 8M8 9c0 2 2 4 5 5"/><path d="M14 21l4-10 4 10M16 17h4"/></svg> },
+      societe:       { label: '사회',  icon: s => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.2"/><path d="M3 19c0-3.3 2.7-6 6-6s6 2.7 6 6M14.5 18c.3-2 1.7-4 3.5-4 2 0 3.5 1.7 3.5 4"/></svg> },
+      sante:         { label: '건강',  icon: s => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s-7-4.5-7-10a4 4 0 017-2.6A4 4 0 0119 11c0 5.5-7 10-7 10z"/></svg> },
+      culture:       { label: '문화',  icon: s => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20V9l8-5 8 5v11"/><path d="M4 20h16M10 20v-6h4v6"/></svg> },
+      environnement: { label: '환경',  icon: s => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3c4 4 6 7 6 11a6 6 0 11-12 0c0-4 2-7 6-11z"/><path d="M12 9v10"/></svg> },
+      technologie:   { label: '기술',  icon: s => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M9 21h6M12 17v4"/></svg> },
+      economie:      { label: '경제',  icon: s => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19V5M4 19h16M8 15v-4M12 15V8M16 15v-6"/></svg> },
+      art:           { label: '예술',  icon: s => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="8" cy="9.5" r="1.2" fill="currentColor"/><circle cx="13" cy="7.5" r="1.2" fill="currentColor"/><circle cx="16.5" cy="11" r="1.2" fill="currentColor"/><path d="M12 21c-1.5-2 1-3 1-5 0-1.5-1-2-1-2"/></svg> },
+      voyage:        { label: '여행',  icon: s => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s-7-7-7-12a7 7 0 1114 0c0 5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg> },
+    };
+
+    const COLORS = {
+      mastered: { fill: GRADIENT,  ring: 'rgba(102,126,234,0.18)', dot: BRAND,     text: '#fff',     bgChip: 'rgba(102,126,234,0.10)' },
+      current:  { fill: '#fff',    ring: 'rgba(102,126,234,0.35)', dot: BRAND,     text: BRAND,      bgChip: 'rgba(102,126,234,0.10)' },
+      partial:  { fill: '#fff',    ring: 'rgba(245,158,11,0.30)',  dot: '#F59E0B', text: '#92400E',   bgChip: 'rgba(245,158,11,0.12)' },
+      locked:   { fill: '#fff',    ring: 'rgba(15,23,42,0.06)',    dot: '#CBD5E1', text: '#94A3B8',   bgChip: 'rgba(148,163,184,0.10)' },
+    };
+
+    const STATUS_LABEL = {
+      mastered: 'Maîtrisée', current: 'En cours', partial: 'Indexée', locked: 'Non indexée',
+    };
+
+    function themeKeyFrom(unit) {
+      const s = ((unit.grand_themes?.label_fr) || (unit.sous_theme) || '').toLowerCase();
+      if (s.includes('sociét') || s.includes('social') || s.includes('famille') || s.includes('quotid') || s.includes('vie')) return 'societe';
+      if (s.includes('cultur') || s.includes('tradition') || s.includes('histoir') || s.includes('fête')) return 'culture';
+      if (s.includes('santé') || s.includes('médec') || s.includes('corps') || s.includes('aliment')) return 'sante';
+      if (s.includes('technolog') || s.includes('médias') || s.includes('numéri') || s.includes('internet')) return 'technologie';
+      if (s.includes('économ') || s.includes('travail') || s.includes('consom') || s.includes('commerce')) return 'economie';
+      if (s.includes('art') || s.includes('littér') || s.includes('musiq') || s.includes('cinéma')) return 'art';
+      if (s.includes('voyage') || s.includes('transport') || s.includes('lieu') || s.includes('géograph')) return 'voyage';
+      if (s.includes('environn') || s.includes('nature') || s.includes('climat') || s.includes('écolog')) return 'environnement';
+      if (s.includes('langue') || s.includes('linguis') || s.includes('langage') || s.includes('communic')) return 'langue';
+      return 'societe';
+    }
+
+    async function loadMapData(userId) {
+      if (!window.supabaseClient) return { units: [], lessonContent: [], reviewItems: [] };
+      const [unitsRes, lcRes, riRes] = await Promise.all([
+        window.supabaseClient.from('snu_units').select('*, grand_themes(label_fr, label_ko)').order('level').order('unit_number').order('lesson_number'),
+        window.supabaseClient.from('lesson_content').select('unit_id, vocabulary, structures, ocr_confidence').eq('user_id', userId),
+        window.supabaseClient.from('review_items').select('unit_id, interval_days').eq('user_id', userId),
+      ]);
+      return {
+        units: unitsRes.data || [],
+        lessonContent: lcRes.data || [],
+        reviewItems: riRes.data || [],
+      };
+    }
+
+    function computeMastery(unitId, lessonContent, reviewItems, currentUnitId) {
+      const content = lessonContent?.find(l => l.unit_id === unitId);
+      if (!content) return 'locked';
+      if (unitId === currentUnitId) return 'current';
+      const reviews = reviewItems?.filter(r => r.unit_id === unitId) || [];
+      const avgInterval = reviews.length > 0
+        ? reviews.reduce((sum, r) => sum + (r.interval_days || 1), 0) / reviews.length : 0;
+      if (avgInterval >= 7) return 'mastered';
+      return 'partial';
+    }
+
+    // ── ProgressRing ──────────────────────────────────────────────────────────
+    function ProgressRing({ value, size }) {
+      const r = (size - 6) / 2;
+      const c = 2 * Math.PI * r;
+      const safe = isNaN(value) || !isFinite(value) ? 0 : Math.max(0, Math.min(1, value));
+      return (
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+          <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="4"/>
+          <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#fff" strokeWidth="4"
+            strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c*(1-safe)}
+            transform={`rotate(-90 ${size/2} ${size/2})`}/>
+          <text x="50%" y="52%" textAnchor="middle" dominantBaseline="middle"
+            fill="#fff" fontWeight="700" fontSize="12" fontFamily="-apple-system,system-ui">
+            {Math.round(safe*100)}%
+          </text>
+        </svg>
+      );
+    }
+
+    // ── MapHeader ─────────────────────────────────────────────────────────────
+    function MapHeader({ activeLevel, masteredCount, totalCount }) {
+      return (
+        <div style={{ padding: '14px 18px 12px', background: '#fff', borderBottom: '1px solid rgba(15,23,42,0.05)' }}>
+          <div style={{ padding: '12px 14px', borderRadius: 14, background: GRADIENT, color: '#fff',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            boxShadow: '0 8px 22px rgba(102,126,234,0.32)', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', right: -30, top: -30, width: 120, height: 120,
+              borderRadius: '50%', background: 'rgba(255,255,255,0.10)' }} />
+            <div style={{ position: 'relative' }}>
+              <div style={{ fontSize: 10, letterSpacing: 1.5, opacity: 0.85, fontWeight: 600, textTransform: 'uppercase' }}>Niveau actuel</div>
+              <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: -0.6, marginTop: 2 }}>SNU {activeLevel}</div>
+              <div style={{ fontSize: 11, opacity: 0.9, marginTop: 1 }}>{masteredCount} / {totalCount} unités maîtrisées</div>
+            </div>
+            <ProgressRing value={totalCount > 0 ? masteredCount / totalCount : 0} size={52} />
+          </div>
+        </div>
+      );
+    }
+
+    // ── LevelSwitcher ─────────────────────────────────────────────────────────
+    function LevelSwitcher({ levels, active, onPick }) {
+      const ref = useRef(null);
+      useEffect(() => {
+        const el = ref.current?.querySelector(`[data-lvl="${active}"]`);
+        if (el) el.scrollIntoView({ inline: 'center', block: 'nearest' });
+      }, [active]);
+      return (
+        <div ref={ref} style={{ display: 'flex', gap: 7, overflowX: 'auto', padding: '10px 18px 12px',
+          background: '#fff', borderBottom: '1px solid rgba(15,23,42,0.05)', scrollbarWidth: 'none' }}>
+          {levels.map(l => {
+            const isActive = l === active;
+            const isPast = LEVELS.indexOf(l) < LEVELS.indexOf(active);
+            return (
+              <button key={l} data-lvl={l} onClick={() => onPick(l)} style={{
+                flexShrink: 0, padding: '7px 13px', borderRadius: 999, border: 'none', cursor: 'pointer',
+                fontSize: 13, fontWeight: 700, letterSpacing: -0.2, fontFamily: 'inherit',
+                background: isActive ? GRADIENT : (isPast ? 'rgba(102,126,234,0.10)' : '#F1F5F9'),
+                color: isActive ? '#fff' : (isPast ? BRAND_DEEP : '#94A3B8'),
+                boxShadow: isActive ? '0 4px 12px rgba(102,126,234,0.30)' : 'none',
+              }}>{l}</button>
+            );
+          })}
+        </div>
+      );
+    }
+
+    // ── Node ──────────────────────────────────────────────────────────────────
+    function Node({ unit, status, pos, index, level, onTap, isCurrent, currentRef }) {
+      const c = COLORS[status];
+      const themeKey = themeKeyFrom(unit);
+      const theme = THEMES[themeKey] || THEMES.societe;
+      const size = isCurrent ? 72 : 64;
+      return (
+        <div ref={currentRef} style={{ position: 'absolute', left: pos.x, top: pos.y, transform: 'translate(-50%,-50%)' }}>
+          {isCurrent && (
+            <>
+              <div style={{ position: 'absolute', inset: -14, borderRadius: '50%',
+                background: 'rgba(102,126,234,0.14)', animation: 'kcPulse 2.4s ease-out infinite' }} />
+              <div style={{ position: 'absolute', top: '50%', left: '100%', transform: 'translateY(-50%)',
+                marginLeft: 14, background: '#0F172A', color: '#fff', fontSize: 10, fontWeight: 700,
+                letterSpacing: 0.4, padding: '5px 9px', borderRadius: 6, whiteSpace: 'nowrap', textTransform: 'uppercase' }}>
+                COMMENCER
+                <div style={{ position: 'absolute', left: -3, top: '50%', transform: 'translateY(-50%) rotate(45deg)',
+                  width: 7, height: 7, background: '#0F172A' }} />
+              </div>
+            </>
+          )}
+          <button onClick={() => onTap({ unit, status, level, index })} style={{
+            width: size, height: size, borderRadius: '50%', border: 'none',
+            cursor: status === 'locked' ? 'not-allowed' : 'pointer',
+            background: c.fill,
+            boxShadow: (status === 'mastered' || isCurrent)
+              ? `0 6px 18px ${c.ring}, 0 0 0 4px ${c.ring}`
+              : status === 'partial'
+                ? `0 4px 12px ${c.ring}, 0 0 0 4px ${c.ring}, inset 0 0 0 2px ${c.dot}`
+                : `0 2px 6px ${c.ring}, 0 0 0 4px ${c.ring}, inset 0 0 0 2px ${c.dot}`,
+            color: c.text, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 0, position: 'relative', transition: 'transform 0.15s', WebkitTapHighlightColor: 'transparent',
+          }}
+          onPointerDown={e => e.currentTarget.style.transform='scale(0.93)'}
+          onPointerUp={e => e.currentTarget.style.transform='scale(1)'}
+          onPointerLeave={e => e.currentTarget.style.transform='scale(1)'}>
+            {status === 'locked'
+              ? <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg>
+              : <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>{theme.icon(isCurrent ? 26 : 22)}</div>}
+            {status === 'mastered' && (
+              <div style={{ position: 'absolute', bottom: -2, right: -2, width: 22, height: 22, borderRadius: '50%',
+                background: '#22C55E', border: '2.5px solid #FAFBFF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 6.5l2.5 2.5L10 3.5"/></svg>
+              </div>
+            )}
+            {status === 'partial' && (
+              <div style={{ position: 'absolute', bottom: -2, right: -2, width: 22, height: 22, borderRadius: '50%',
+                background: '#F59E0B', border: '2.5px solid #FAFBFF', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: '#fff', fontSize: 11, fontWeight: 800 }}>½</div>
+            )}
+          </button>
+          <div style={{ position: 'absolute', top: size + 10, left: '50%', transform: 'translateX(-50%)',
+            textAlign: 'center', pointerEvents: 'none', maxWidth: 140 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.4, fontFamily: 'ui-monospace,monospace',
+              color: status === 'locked' ? '#CBD5E1' : '#94A3B8' }}>{level}-{index+1}</div>
+            <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: -0.2, marginTop: 1,
+              fontFamily: '"Noto Sans KR",-apple-system,system-ui',
+              color: status === 'locked' ? '#CBD5E1' : '#0F172A' }}>{unit.title_ko || unit.id}</div>
+          </div>
+        </div>
+      );
+    }
+
+    // ── MapPath ───────────────────────────────────────────────────────────────
+    function MapPath({ level, units, lessonContent, reviewItems, currentUnitId, onTap, currentRef }) {
+      const W = 354; const NODE_GAP = 128; const AMPLITUDE = 62;
+      const positions = units.map((u, i) => ({
+        x: W/2 + Math.sin(i * 0.95) * AMPLITUDE,
+        y: 50 + i * NODE_GAP,
+      }));
+      const totalH = 50 + (units.length - 1) * NODE_GAP + 120;
+
+      let pathD = '';
+      positions.forEach((p, i) => {
+        if (i === 0) { pathD += `M ${p.x} ${p.y}`; }
+        else {
+          const prev = positions[i-1]; const midY = (prev.y + p.y) / 2;
+          pathD += ` C ${prev.x} ${midY}, ${p.x} ${midY}, ${p.x} ${p.y}`;
+        }
+      });
+
+      let masteredLen = 0;
+      for (let i = 1; i < positions.length; i++) {
+        const s = computeMastery(units[i-1].id, lessonContent, reviewItems, currentUnitId);
+        if (s !== 'mastered') break;
+        const dx = positions[i].x - positions[i-1].x;
+        const dy = positions[i].y - positions[i-1].y;
+        masteredLen += Math.hypot(dx, dy);
+      }
+
+      const masteredCount = units.filter(u => computeMastery(u.id, lessonContent, reviewItems, currentUnitId) === 'mastered').length;
+
+      return (
+        <div style={{ position: 'relative', width: '100%', minHeight: totalH, padding: '0 0 40px' }}>
+          <div style={{ position: 'sticky', top: 0, zIndex: 5, padding: '14px 18px 10px',
+            background: 'linear-gradient(180deg,#FAFBFF 0%,rgba(250,251,255,0.9) 70%,transparent 100%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.4, color: '#94A3B8', textTransform: 'uppercase' }}>
+                Chapitre · SNU {level}
+              </div>
+              <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: -0.5, color: '#0F172A', marginTop: 2 }}>
+                {units.length} unités · {masteredCount} maîtrisées
+              </div>
+            </div>
+          </div>
+          <svg width={W} height={totalH} style={{ position: 'absolute', top: 0, left: (390-W)/2, pointerEvents: 'none' }}>
+            <path d={pathD} fill="none" stroke="#E2E8F0" strokeWidth="3" strokeDasharray="2 7" strokeLinecap="round"/>
+            {masteredLen > 0 && <path d={pathD} fill="none" stroke={BRAND} strokeWidth="3" strokeLinecap="round"
+              strokeDasharray={`${masteredLen + 30} 99999`}/>}
+          </svg>
+          {units.map((u, i) => {
+            const status = computeMastery(u.id, lessonContent, reviewItems, currentUnitId);
+            return <Node key={u.id || i} unit={u} status={status} pos={positions[i]} index={i} level={level}
+              onTap={onTap} isCurrent={status === 'current'} currentRef={status === 'current' ? currentRef : null}/>;
+          })}
+          <div style={{ position: 'absolute', left: W/2, top: 50 + units.length * NODE_GAP - 20,
+            transform: 'translateX(-50%)', width: 76, height: 76, borderRadius: 22, background: '#fff',
+            border: '2px dashed rgba(102,126,234,0.30)', display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center', gap: 2 }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z"/></svg>
+            <div style={{ fontSize: 9, fontWeight: 700, color: '#94A3B8', letterSpacing: 0.5 }}>FIN</div>
+          </div>
+        </div>
+      );
+    }
+
+    // ── StatusChip ────────────────────────────────────────────────────────────
+    function StatusChip({ status }) {
+      const c = COLORS[status];
+      return (
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 5,
+          padding: '3px 9px', borderRadius: 999, background: c.bgChip,
+          color: c.text === '#fff' ? BRAND_DEEP : c.text, fontSize: 11, fontWeight: 700 }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: c.dot }} />
+          {STATUS_LABEL[status]}
+        </div>
+      );
+    }
+
+    function LessonCard({ n, status }) {
+      const isDone = status === 'done'; const isActive = status === 'active'; const isLocked = status === 'locked';
+      return (
+        <div style={{ flex: 1, padding: '12px', borderRadius: 12,
+          background: isDone ? 'rgba(102,126,234,0.06)' : isActive ? '#fff' : '#F8FAFC',
+          border: isActive ? `1.5px solid ${BRAND}` : '1px solid rgba(15,23,42,0.05)',
+          display: 'flex', alignItems: 'center', gap: 9 }}>
+          <div style={{ width: 28, height: 28, borderRadius: 9, flexShrink: 0,
+            background: isDone ? GRADIENT : isLocked ? '#E2E8F0' : '#fff',
+            border: !isDone && !isLocked ? `1.5px solid ${isActive ? BRAND : '#E2E8F0'}` : 'none',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: isDone ? '#fff' : isActive ? BRAND : '#94A3B8', fontSize: 11, fontWeight: 800 }}>
+            {isDone ? <svg width="13" height="13" viewBox="0 0 12 12" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 6.5l2.5 2.5L10 3.5"/></svg>
+            : isLocked ? <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg>
+            : n}
+          </div>
+          <div>
+            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 0.5, color: '#94A3B8', textTransform: 'uppercase' }}>Leçon {n}</div>
+            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: -0.2, color: isLocked ? '#94A3B8' : '#0F172A' }}>
+              {n === 1 ? '문법 · 어휘' : '읽기 · 쓰기'}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function Stat({ label, value }) {
+      return (
+        <div>
+          <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 0.5, color: '#94A3B8', textTransform: 'uppercase' }}>{label}</div>
+          <div style={{ fontSize: 14, fontWeight: 800, color: '#0F172A', letterSpacing: -0.3, marginTop: 2,
+            fontFamily: 'ui-monospace,"SF Mono",monospace' }}>{value}</div>
+        </div>
+      );
+    }
+
+    // ── UnitSheet ─────────────────────────────────────────────────────────────
+    function UnitSheet({ data, lessonContent, reviewItems, onClose }) {
+      if (!data) return null;
+      const { unit, status, level, index } = data;
+      const c = COLORS[status];
+      const themeKey = themeKeyFrom(unit);
+      const theme = THEMES[themeKey] || THEMES.societe;
+      const content = lessonContent?.find(l => l.unit_id === unit.id);
+      const vocabCount = content?.vocabulary?.length || 0;
+      const structCount = content?.structures?.length || 0;
+
+      const lessonStatus1 = status === 'mastered' ? 'done' : status === 'current' ? 'active' : status === 'locked' ? 'locked' : 'done';
+      const lessonStatus2 = status === 'mastered' ? 'done' : status === 'locked' ? 'locked' : 'pending';
+
+      function handleCTA() {
+        if (status === 'locked') return;
+        const normalizedUnit = {
+          id: unit.id, title: unit.title_ko || unit.id, subtitle: unit.title_en || '',
+          theme: unit.sous_theme || '', snu_level: `${unit.level}_${unit.unit_number}-${unit.lesson_number}`,
+          grand_theme_label_fr: unit.grand_themes?.label_fr || '', sous_theme: unit.sous_theme || '',
+          level: unit.level || '', unit_number: unit.unit_number, lesson_number: unit.lesson_number,
+        };
+        if (window.selectUnit) window.selectUnit(unit.id, normalizedUnit);
+        onClose();
+        document.querySelector('.nav-tab[data-mode="freeChat"]')?.click();
+      }
+
+      return (
+        <>
+          <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.4)',
+            zIndex: 200, animation: 'kcFadeIn 0.18s ease-out' }} />
+          <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: '#fff',
+            borderRadius: '24px 24px 0 0', padding: '12px 18px 34px', zIndex: 201,
+            animation: 'kcSlideUp 0.28s cubic-bezier(.2,.8,.2,1)', maxHeight: '72vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
+              <div style={{ width: 38, height: 4, borderRadius: 4, background: '#E2E8F0' }} />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div style={{ width: 56, height: 56, borderRadius: 16, flexShrink: 0,
+                background: status === 'mastered' ? GRADIENT : '#F1F5F9',
+                color: status === 'mastered' ? '#fff' : BRAND,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: status === 'mastered' ? '0 8px 18px rgba(102,126,234,0.30)' : 'none' }}>
+                {theme.icon(28)}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.6,
+                  color: '#94A3B8', fontFamily: 'ui-monospace,monospace' }}>{level}-{index+1} · {theme.label}</div>
+                <div style={{ fontSize: 19, fontWeight: 800, letterSpacing: -0.4, color: '#0F172A',
+                  fontFamily: '"Noto Sans KR",-apple-system,system-ui', marginTop: 1 }}>{unit.title_ko || unit.id}</div>
+                <StatusChip status={status} />
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
+              <LessonCard n={1} status={lessonStatus1} />
+              <LessonCard n={2} status={lessonStatus2} />
+            </div>
+            <div style={{ marginTop: 18, padding: '12px 14px', borderRadius: 12, background: '#F8FAFC',
+              display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
+              <Stat label="Vocab" value={content ? `${vocabCount}` : '—'} />
+              <Stat label="Grammaire" value={content ? `${structCount}` : '—'} />
+              <Stat label="Confiance" value={content ? `${Math.round((content.ocr_confidence || 0) * 100)}%` : '—'} />
+            </div>
+            <button onClick={handleCTA} style={{
+              marginTop: 18, width: '100%', height: 50, borderRadius: 14, border: 'none',
+              cursor: status === 'locked' ? 'not-allowed' : 'pointer',
+              background: status === 'locked' ? '#E2E8F0' : GRADIENT,
+              color: status === 'locked' ? '#94A3B8' : '#fff',
+              fontSize: 15, fontWeight: 700, letterSpacing: -0.2, fontFamily: 'inherit',
+              boxShadow: status === 'locked' ? 'none' : '0 8px 22px rgba(102,126,234,0.35)',
+            }}>
+              {status === 'mastered' ? 'Réviser cette unité'
+                : status === 'partial' ? 'Continuer l\'apprentissage'
+                : status === 'current' ? 'Commencer'
+                : 'Verrouillé — uploadez une photo'}
+            </button>
+          </div>
+        </>
+      );
+    }
+
+    // ── Root App ──────────────────────────────────────────────────────────────
+    function KoCoMapApp() {
+      const [activeLevel, setActiveLevel] = useState('5A');
+      const [allLevels, setAllLevels] = useState(LEVELS);
+      const [unitsByLevel, setUnitsByLevel] = useState({});
+      const [lessonContent, setLessonContent] = useState([]);
+      const [reviewItems, setReviewItems] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [sheet, setSheet] = useState(null);
+      const [currentUnitId, setCurrentUnitId] = useState('snu_5a_1_1');
+      const currentRef = useRef(null);
+
+      useEffect(() => {
+        const userId = window.kocoUserId || 'anonymous';
+        loadMapData(userId).then(({ units, lessonContent: lc, reviewItems: ri }) => {
+          const byLevel = {};
+          for (const u of units) {
+            if (!byLevel[u.level]) byLevel[u.level] = [];
+            byLevel[u.level].push(u);
+          }
+          for (const lvl of Object.keys(byLevel)) {
+            byLevel[lvl].sort((a, b) => a.unit_number - b.unit_number || a.lesson_number - b.lesson_number);
+          }
+          const present = LEVELS.filter(l => byLevel[l]?.length > 0);
+          setAllLevels(present.length > 0 ? present : LEVELS);
+          setUnitsByLevel(byLevel);
+          setLessonContent(lc);
+          setReviewItems(ri);
+
+          // Auto-select level from active STATE unit
+          const stateUnitId = window.STATE?.unitId || 'snu_5a_1_1';
+          setCurrentUnitId(stateUnitId);
+          const m = stateUnitId.match(/^snu_([^_]+)_/);
+          if (m) {
+            const lvl = m[1].toUpperCase();
+            if (byLevel[lvl]) setActiveLevel(lvl);
+          }
+          setLoading(false);
+        });
+
+        // Sync currentUnitId when STATE changes (polling)
+        const sync = setInterval(() => {
+          const id = window.STATE?.unitId;
+          if (id) setCurrentUnitId(id);
+        }, 2000);
+        return () => clearInterval(sync);
+      }, []);
+
+      useEffect(() => {
+        if (currentRef.current) {
+          setTimeout(() => currentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300);
+        }
+      }, [activeLevel, loading]);
+
+      const levelUnits = unitsByLevel[activeLevel] || [];
+      const masteredCount = levelUnits.filter(u =>
+        computeMastery(u.id, lessonContent, reviewItems, currentUnitId) === 'mastered'
+      ).length;
+
+      if (loading) return (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh',
+          flexDirection: 'column', gap: 12 }}>
+          <div style={{ width: 40, height: 40, borderRadius: '50%', border: `3px solid ${BRAND}`,
+            borderTopColor: 'transparent', animation: 'kcSpin 0.8s linear infinite' }} />
+          <div style={{ fontSize: 13, color: '#94A3B8', fontWeight: 600 }}>지도 불러오는 중...</div>
+        </div>
+      );
+
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', background: '#FAFBFF', minHeight: '100%' }}>
+          <MapHeader activeLevel={activeLevel} masteredCount={masteredCount} totalCount={levelUnits.length} />
+          <LevelSwitcher levels={allLevels} active={activeLevel} onPick={lvl => { setActiveLevel(lvl); setSheet(null); }} />
+          <div style={{ flex: 1, overflowY: 'auto', position: 'relative' }}>
+            {levelUnits.length === 0
+              ? <div style={{ padding: '40px 20px', textAlign: 'center', color: '#94A3B8' }}>
+                  <div style={{ fontSize: 32, marginBottom: 12 }}>📭</div>
+                  <div style={{ fontWeight: 700 }}>Aucune unité pour ce niveau</div>
+                </div>
+              : <MapPath level={activeLevel} units={levelUnits} lessonContent={lessonContent}
+                  reviewItems={reviewItems} currentUnitId={currentUnitId} onTap={setSheet} currentRef={currentRef} />
+            }
+          </div>
+          {sheet && <UnitSheet data={sheet} lessonContent={lessonContent} reviewItems={reviewItems} onClose={() => setSheet(null)} />}
+        </div>
+      );
+    }
+
+    ReactDOM.render(<KoCoMapApp />, document.getElementById('mapScreen'));
+  </script>
 </body>
 </html>

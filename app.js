@@ -137,6 +137,7 @@ const elements = {
   endSessionBtn: document.getElementById('endSessionBtn'),
   sessionSummaryModal: document.getElementById('sessionSummaryModal'),
   statsScreen: document.getElementById('statsScreen'),
+  mapScreen: document.getElementById('mapScreen'),
   transcriptionPanel: document.querySelector('.transcription-panel'),
   fluencyBar: document.querySelector('.fluency-bar'),
   fluencyBadge: document.querySelector('.fluency-badge'),
@@ -621,6 +622,17 @@ function setConversationUiVisible(visible) {
   if (elements.unitSelectorBtn) elements.unitSelectorBtn.style.visibility = visible ? '' : 'hidden';
 }
 
+function showMapScreen() {
+  if (!elements.mapScreen) return;
+  elements.mapScreen.classList.remove('hidden');
+  elements.statsScreen?.classList.add('hidden');
+  setConversationUiVisible(false);
+}
+
+function hideMapScreen() {
+  elements.mapScreen?.classList.add('hidden');
+}
+
 function showStatsScreen() {
   elements.statsScreen.classList.remove('hidden');
   setConversationUiVisible(false);
@@ -666,11 +678,20 @@ function hideStatsScreen() {
 function updateMode(newMode) {
   if (newMode === 'stats') {
     updateNav('stats');
+    hideMapScreen();
     showStatsScreen();
     return;
   }
 
+  if (newMode === 'map') {
+    updateNav('map');
+    hideStatsScreen();
+    showMapScreen();
+    return;
+  }
+
   hideStatsScreen();
+  hideMapScreen();
 
   if (!MODE_INFO[newMode]) return;
 
@@ -1152,6 +1173,7 @@ function selectUnit(unitId, unitObj) {
   updateContextGuard(STATE.unitId);
   nextQuestion();
 }
+window.selectUnit = selectUnit;
 
 async function updateContextGuard(unitId) {
   if (!window.getDataHealthCached) return;
