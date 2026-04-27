@@ -705,10 +705,10 @@
       );
 
       return (
-        <div style={{ display: 'flex', flexDirection: 'column', background: '#FAFBFF', minHeight: '100%' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', background: '#FAFBFF', height: '100%' }}>
           <MapHeader activeLevel={activeLevel} masteredCount={masteredCount} totalCount={levelUnits.length} />
           <LevelSwitcher levels={allLevels} active={activeLevel} onPick={lvl => { setActiveLevel(lvl); setSheet(null); }} />
-          <div style={{ flex: 1, overflowY: 'auto', position: 'relative' }}>
+          <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch', position: 'relative', minHeight: 0 }}>
             {levelUnits.length === 0
               ? <div style={{ padding: '40px 20px', textAlign: 'center', color: '#94A3B8' }}>
                   <div style={{ fontSize: 32, marginBottom: 12 }}>📭</div>
@@ -723,7 +723,22 @@
       );
     }
 
-    ReactDOM.render(<KoCoMapApp />, document.getElementById('mapScreen'));
+    // Montage lazy — appelé depuis showMapScreen() ou auto après chargement Babel
+    window.mountKoCoMap = function() {
+      if (window._mapMounted) return;
+      const el = document.getElementById('mapScreen');
+      if (!el) return;
+      window._mapMounted = true;
+      try {
+        ReactDOM.render(React.createElement(KoCoMapApp), el);
+        console.log('[KoCoMap] mounted');
+      } catch(e) {
+        console.error('[KoCoMap] mount error:', e);
+        window._mapMounted = false;
+      }
+    };
+    // Auto-mount dès que Babel a terminé (mobile peut être lent)
+    setTimeout(window.mountKoCoMap, 50);
   </script>
 </body>
 </html>

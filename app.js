@@ -627,6 +627,8 @@ function showMapScreen() {
   elements.mapScreen.classList.remove('hidden');
   elements.statsScreen?.classList.add('hidden');
   setConversationUiVisible(false);
+  // Monte React si Babel n'a pas encore fini (timing mobile)
+  if (typeof window.mountKoCoMap === 'function') window.mountKoCoMap();
 }
 
 function hideMapScreen() {
