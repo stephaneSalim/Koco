@@ -6,6 +6,10 @@
 let _currentTtsAudio = null; // hoisted — AudioGate.setMuted() needs this
 let sessionTargetsUsed = new Set();
 
+const SESSION_CONFIG = { autoSaveInterval: 5 * 60 * 1000, inactivityTimeout: 10 * 60 * 1000 };
+let autoSaveTimer = null;
+let inactivityTimer = null;
+
 // ── AudioGate — protects ElevenLabs credits by aborting fetch on mute ──────
 const AudioGate = {
   muted: localStorage.getItem('koco_tts_enabled') === 'false',
@@ -68,7 +72,8 @@ const STATE = {
   currentSNUMission: null,
   selectedMissionFormat: null,
   needsFrenchExplanation: false,
-  knowledgeSnapshot: null
+  knowledgeSnapshot: null,
+  recurringErrors: []
 };
 
 // Normalize a Supabase snu_units row to a stable unit object used throughout the app
@@ -838,6 +843,51 @@ function initPushToTalk() {
 //#endregion
 
 //#region API interaction + conversation flow
+function showToast(msg) {
+  let el = document.getElementById('kocoToast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'kocoToast';
+    el.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:8px 16px;border-radius:20px;font-size:0.8em;z-index:9999;opacity:0;transition:opacity 0.3s;pointer-events:none';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.style.opacity = '1';
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => { el.style.opacity = '0'; }, 2500);
+}
+
+function saveSessionSilent() {
+  if (STATE.messageCount < 2) return;
+  const durationMin = Math.round((Date.now() - STATE.session.sessionStart) / 60000);
+  if (window.saveSession) {
+    saveSession(STATE.unitId, STATE.mode, durationMin, STATE.sessionCorrections);
+    showToast('💾 Sauvegardé');
+    console.log('[KoCo] Ghost save — duration:', durationMin, 'min');
+  }
+}
+
+function startSessionTimers() {
+  clearInterval(autoSaveTimer);
+  autoSaveTimer = setInterval(saveSessionSilent, SESSION_CONFIG.autoSaveInterval);
+  resetInactivityTimer();
+}
+
+function resetInactivityTimer() {
+  clearTimeout(inactivityTimer);
+  inactivityTimer = setTimeout(() => {
+    saveSessionSilent();
+    showToast('⏸ Session inactive — sauvegardée');
+  }, SESSION_CONFIG.inactivityTimeout);
+}
+
+function stopSessionTimers() {
+  clearInterval(autoSaveTimer);
+  clearTimeout(inactivityTimer);
+  autoSaveTimer = null;
+  inactivityTimer = null;
+}
+
 async function processUserInput(text) {
   if (!text) return;
 
@@ -867,6 +917,9 @@ async function processUserInput(text) {
   }
   context.needsFrenchExplanation = STATE.needsFrenchExplanation;
   context.knowledgeSnapshot = STATE.knowledgeSnapshot;
+  context.recurringErrors = STATE.recurringErrors || [];
+
+  resetInactivityTimer();
 
   const systemPrompt = generateSystemPrompt(context, STATE.mode, STATE.gmsSentences, STATE.pageContext);
   STATE.needsFrenchExplanation = false; // reset after prompt built
@@ -905,6 +958,9 @@ async function processUserInput(text) {
 
     if (correction && correction.status !== 'correct') {
       STATE.sessionCorrections.push(correction);
+      if (window.checkAndUpdateRecurrence) {
+        window.checkAndUpdateRecurrence(window.kocoUserId, correction.original, correction.fixed);
+      }
     }
 
     if (STATE.mode === 'mission') {
@@ -2271,6 +2327,46 @@ async function runDistiller(corrections, unitId, userId) {
   }
 }
 
+async function extractPositiveLearning(messages, unitId) {
+  if (!messages || messages.length < 4) return null;
+
+  // Count structure hits from the session (already tracked)
+  const structureHits = [...STATE.session.structureHits];
+  // Count how many times each structure appears in user messages
+  const hitCount = {};
+  for (const msg of messages.filter(m => m.role === 'user')) {
+    for (const s of structureHits) {
+      if (msg.content?.includes(s)) hitCount[s] = (hitCount[s] || 0) + 1;
+    }
+  }
+  // Conservative: only structures used 2+ times (confidence proxy)
+  const confirmed = Object.entries(hitCount)
+    .filter(([, count]) => count >= 2)
+    .map(([s]) => s);
+
+  if (confirmed.length === 0) return null;
+  return { unitId, structures: confirmed, extractedAt: new Date().toISOString() };
+}
+
+async function mergePositiveLearning(unitId, learning) {
+  if (!learning?.structures?.length || !window.kocoUserId) return;
+  try {
+    if (window.supabase) {
+      const { error } = await window.supabase
+        .from('lesson_content')
+        .upsert({
+          user_id: window.kocoUserId,
+          unit_id: unitId,
+          structures: learning.structures,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'user_id,unit_id' });
+      if (!error) console.log('[KoCo] Positive learning merged:', learning.structures.length, 'structures');
+    }
+  } catch (e) {
+    console.warn('[KoCo] mergePositiveLearning error:', e);
+  }
+}
+
 function showDistillerNotification(count) {
   const notif = document.createElement('div');
   notif.style.cssText = `
@@ -2292,6 +2388,7 @@ function showDistillerNotification(count) {
 
 //#region Session summary
 function openSessionSummary() {
+  stopSessionTimers();
   const durationMin = Math.round((Date.now() - STATE.session.sessionStart) / 60000);
   const corrections = STATE.sessionCorrections;
 
@@ -2337,6 +2434,10 @@ function openSessionSummary() {
   if (majorCorrections.length > 0) {
     runDistiller(majorCorrections, STATE.unitId, window.kocoUserId);
   }
+
+  extractPositiveLearning(conversationManager.messages, STATE.unitId).then(learning => {
+    if (learning) mergePositiveLearning(STATE.unitId, learning);
+  });
 
   // Session Report (Speak mode)
   if (STATE.mode === 'speak' || STATE.mode === 'freeChat') {
@@ -2946,6 +3047,17 @@ function initInputBar() {
 //#endregion
 
 //#region Initialization
+async function loadRecurringErrors() {
+  if (!window.getRecurringErrors || !window.kocoUserId) return;
+  try {
+    const errors = await window.getRecurringErrors(window.kocoUserId);
+    STATE.recurringErrors = errors || [];
+    if (errors.length > 0) console.log('[KoCo] Recurring errors loaded:', errors.length);
+  } catch (e) {
+    console.warn('[KoCo] loadRecurringErrors error:', e);
+  }
+}
+
 function initApp() {
   conversationManager = new ConversationManager();
   STATE.session.sessionStart = Date.now();
@@ -3004,6 +3116,8 @@ function initApp() {
   }
 
   checkDueReviews();
+  loadRecurringErrors();
+  startSessionTimers();
 
   const apiKey = getApiKey();
   if (!apiKey) {

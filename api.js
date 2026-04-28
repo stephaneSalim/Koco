@@ -368,6 +368,60 @@ window.resolveMissionConfig = resolveMissionConfig;
  * @param {string} mode - Practice mode (freeChat, debate, speaking, speedDrill)
  * @returns {string} System prompt for Claude
  */
+
+// Hiérarchie stricte du contexte injecté — max 800 tokens
+function buildContextBlock(recurringErrors, lessonData, gmsData, missionSheet) {
+  let tokens = 0;
+  const MAX_TOKENS = 800;
+  const blocks = [];
+
+  // PRIORITÉ 1 — Erreurs récurrentes (toujours incluses, max 200 tokens)
+  if (recurringErrors?.length > 0) {
+    blocks.push(`
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ERREURS RÉCURRENTES — PRIORITÉ ABSOLUE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${recurringErrors.slice(0, 5).map(e =>
+  `• "${e.original}" → "${e.fixed}" [${e.recurrence_count || '?'}x]`
+).join('\n')}
+→ Si reproduites → recadrage immédiat : "이 표현은 반복적인 오류입니다. [amorce]"
+→ Drill ciblé obligatoire en fin de session.
+→ FEEDBACK TOUJOURS VISIBLE — jamais silencieux.`);
+    tokens += 200;
+  }
+
+  // PRIORITÉ 2 — lesson_content (max 300 tokens)
+  if (lessonData?.length > 0 && tokens < MAX_TOKENS) {
+    const vocab = lessonData.flatMap(l => l.vocabulary || []).slice(0, 10);
+    const structures = lessonData.flatMap(l => l.structures || []).slice(0, 5);
+    if (vocab.length > 0 || structures.length > 0) {
+      blocks.push(`
+CONTENU UNITÉ ACTIVE :
+Vocab: ${vocab.join(', ')}
+Structures: ${structures.join(', ')}`);
+      tokens += 150;
+    }
+  }
+
+  // PRIORITÉ 3 — GMS (max 200 tokens)
+  if (gmsData?.length > 0 && tokens < MAX_TOKENS) {
+    blocks.push(`
+PHRASES GMS PERTINENTES :
+${gmsData.slice(0, 5).map(s => `• ${s.text_kr}`).join('\n')}`);
+    tokens += 150;
+  }
+
+  // PRIORITÉ 4 — Mission Sheet (max 100 tokens si mode mission)
+  if (missionSheet?.target_grammar?.length > 0 && tokens < MAX_TOKENS) {
+    blocks.push(`
+MISSION : ${(missionSheet.target_grammar || []).slice(0, 3).join(', ')}`);
+    tokens += 100;
+  }
+
+  console.log('[KoCo] Context tokens ~', tokens, '/ 800');
+  return blocks.join('\n');
+}
+
 function generateSystemPrompt(context, mode, gmsSentences, pageContext) {
   const { unit, vocabulary } = context;
 
@@ -418,6 +472,30 @@ NOTE: (one short explanation in French)
 - STATUS minor → small error (particle, conjugation)
 - STATUS major → error blocking comprehension
 - This block must ALWAYS be present`;
+
+  // Unified context block — max 800 tokens, strict priority hierarchy
+  const recurringErrors = context.recurringErrors || [];
+  const lcData = context.hybridContext?.lessonData || [];
+  const gmsForBlock = gmsSentences || [];
+  const missionData = context.missionOverride || null;
+  const contextBlock = buildContextBlock(recurringErrors, lcData, gmsForBlock, missionData);
+
+  const recurringBlock = recurringErrors.length > 0
+    ? `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ERREURS RÉCURRENTES — PRIORISÉES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${recurringErrors.slice(0, 5).map(e => `• "${e.original}" → "${e.fixed}" [${e.recurrence_count || '?'}x]`).join('\n')}`
+    : '';
+
+  const KOCO_PRINCIPLES = `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PRINCIPES PÉDAGOGIQUES KOCO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. FLUIDITÉ D'ABORD — Ne jamais bloquer le flux pour corriger
+2. CORRECTION DIFFÉRÉE — Regroupe les corrections en fin d'échange
+3. ENCOURAGEMENT IMMÉDIAT — Valide l'effort avant tout retour
+4. PROGRESSION VISIBLE — Signale les progrès sur erreurs récurrentes
+5. NATUREL > FORMEL — Préfère les formulations natives aux règles`;
 
   if (mode === 'mission') {
     const missionCfg = context.missionOverride || resolveMissionConfig(context.unitId);
@@ -741,8 +819,9 @@ TARGET_USED: (structure cible utilisée — si applicable)
 ANKI_READY: (true|false — true si erreur significative)
 [/CORRECTION]
 
-${gmsLines ? `PHRASES GMS :\n${gmsLines}` : ''}
+${contextBlock}
 ${pageContextBlock}
+${KOCO_PRINCIPLES}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 OUVERTURE
@@ -785,10 +864,10 @@ CORRECTION (mode débat — stricte)
 - La NOTE doit expliquer la règle grammaticale concernée
 - Si l'utilisateur n'utilise pas de structures avancées → STATUS: minor + suggestion
 
-PHRASES GMS DISPONIBLES :
-${gmsLines}
+${recurringBlock}
 ${pageContextBlock}
 ${correctionBlock}
+${KOCO_PRINCIPLES}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 OUVERTURE
@@ -894,12 +973,9 @@ CORRECTION (mode 자유 대화 — douce)
 - La NOTE doit être encourageante, en français, max 1 phrase
 - Intègre les phrases GMS naturellement dans tes réponses
 
-PHRASES GMS DISPONIBLES :
-${gmsLines}
-${vocabLines ? `\nVOCABULAIRE DE L'UNITÉ :\n${vocabLines}` : ''}
-${pageContextBlock}
-${snapshotBlock}
+${contextBlock}
 ${correctionBlock}
+${KOCO_PRINCIPLES}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 OUVERTURE

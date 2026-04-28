@@ -468,3 +468,52 @@ async function fetchHybridContext(userId, userMessage) {
   return { lessonData, gmsData };
 }
 window.fetchHybridContext = fetchHybridContext;
+
+// Recurrence detection — fingerprint-based, updates on 2nd+ occurrence
+async function checkAndUpdateRecurrence(userId, original, fixed) {
+  if (!userId || !original || !fixed) return;
+  // Fingerprint: lowercase, strip punctuation, first 40 chars
+  const fingerprint = original.toLowerCase().replace(/[^\w\s가-힣]/g, '').trim().slice(0, 40);
+  try {
+    const { data } = await window.supabaseClient
+      .from('review_items')
+      .select('id, recurrence_count, is_recurring')
+      .eq('user_id', userId)
+      .ilike('original', `%${fingerprint.slice(0, 20)}%`)
+      .limit(1);
+
+    if (data && data.length > 0) {
+      const item = data[0];
+      const newCount = (item.recurrence_count || 1) + 1;
+      await window.supabaseClient
+        .from('review_items')
+        .update({
+          recurrence_count: newCount,
+          is_recurring: newCount >= 2,
+          last_seen_at: new Date().toISOString()
+        })
+        .eq('id', item.id);
+    }
+  } catch (e) {
+    console.warn('[KoCo] checkAndUpdateRecurrence error:', e);
+  }
+}
+window.checkAndUpdateRecurrence = checkAndUpdateRecurrence;
+
+async function getRecurringErrors(userId) {
+  if (!userId) return [];
+  try {
+    const { data } = await window.supabaseClient
+      .from('review_items')
+      .select('original, fixed, recurrence_count, last_seen_at')
+      .eq('user_id', userId)
+      .eq('is_recurring', true)
+      .order('recurrence_count', { ascending: false })
+      .limit(5);
+    return data || [];
+  } catch (e) {
+    console.warn('[KoCo] getRecurringErrors error:', e);
+    return [];
+  }
+}
+window.getRecurringErrors = getRecurringErrors;
