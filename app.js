@@ -889,6 +889,18 @@ function stopSessionTimers() {
   inactivityTimer = null;
 }
 
+function detectSituationClient(msg) {
+  const m = (msg || '').toLowerCase();
+  if (['슈퍼','마트','가격','얼마','사다','prix','acheter','magasin'].some(k => m.includes(k))) return 'SHOPPING';
+  if (['병원','의사','아프','약','médecin','malade','hôpital'].some(k => m.includes(k))) return 'HEALTH';
+  if (['회사','직장','업무','travail','bureau','réunion'].some(k => m.includes(k))) return 'WORK';
+  if (['서류','비자','은행','visa','banque','administration'].some(k => m.includes(k))) return 'ADMIN';
+  if (['지하철','버스','택시','길','métro','bus','gare'].some(k => m.includes(k))) return 'TRAVEL';
+  if (['수업','교수','논문','연구','cours','thèse','recherche'].some(k => m.includes(k))) return 'ACADEMIC';
+  if (['친구','약속','식당','카페','ami','restaurant','café'].some(k => m.includes(k))) return 'SOCIAL';
+  return 'GENERAL';
+}
+
 async function processUserInput(text) {
   if (!text) return;
 
@@ -908,8 +920,22 @@ async function processUserInput(text) {
   context.missionOverride = MissionMgr.getContext();
   context.selectedScenario = MissionMgr.selectedScenario || null;
 
-  if (STATE.mode === 'daily_life' && window.fetchHybridContext) {
-    context.hybridContext = await window.fetchHybridContext(window.kocoUserId, text);
+  if (STATE.mode === 'daily_life') {
+    const situation = detectSituationClient(text);
+    console.log('Situation détectée:', situation);
+
+    const [gmsSituational, hybridContext] = await Promise.all([
+      window.getGMSBySituation ? window.getGMSBySituation(situation, 8) : Promise.resolve([]),
+      window.fetchHybridContext ? window.fetchHybridContext(window.kocoUserId, text) : Promise.resolve({ lessonData: [], gmsData: [] }),
+    ]);
+
+    if (gmsSituational.length > 0) {
+      hybridContext.gmsData = [...gmsSituational, ...(hybridContext.gmsData || [])].slice(0, 10);
+    }
+
+    context.hybridContext = hybridContext;
+    context.detectedSituation = situation;
+    console.log('GMS situationnel:', gmsSituational.length, 'phrases |', situation);
   }
 
   // French valve: user asked for explanation inside SNU mission
@@ -2405,6 +2431,110 @@ function showDistillerNotification(count) {
 
 //#endregion
 
+// ─── GMS Drill quotidien ────────────────────────────────────────────────────
+
+async function startGMSDrill() {
+  const phrases = await window.getDueGMSDrills(window.kocoUserId, 5);
+  if (!phrases?.length) {
+    showToast('GMS phrases non disponibles');
+    return;
+  }
+  STATE.gmsDrillPhrases = phrases;
+  STATE.gmsDrillIndex = 0;
+  showGMSDrillModal(phrases[0], 0, phrases.length);
+}
+
+function showGMSDrillModal(phrase, index, total) {
+  document.getElementById('gmsDrillModal')?.remove();
+  const modal = document.createElement('div');
+  modal.id = 'gmsDrillModal';
+  modal.style.cssText = `
+    position:fixed;inset:0;background:rgba(0,0,0,0.6);
+    z-index:9999;display:flex;align-items:flex-end;justify-content:center;
+  `;
+  modal.innerHTML = `
+    <div style="background:white;border-radius:24px 24px 0 0;width:100%;max-width:480px;padding:24px 20px 40px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+        <div style="font-size:13px;font-weight:700;color:#667eea">🎯 GMS Drill ${index + 1}/${total}</div>
+        <div style="font-size:11px;color:#8696A0;background:#f0f3ff;padding:4px 10px;border-radius:10px;font-weight:600;">
+          ${phrase.situation_tag || 'GMS'} · ${phrase.speech_level || 'POLITE'}
+        </div>
+      </div>
+      <div style="background:linear-gradient(135deg,#667eea,#764ba2);border-radius:16px;padding:24px;text-align:center;margin-bottom:16px;color:white;">
+        <div style="font-size:22px;font-weight:700;line-height:1.4;margin-bottom:12px;font-family:'Noto Sans KR',sans-serif;">
+          ${phrase.text_kr}
+        </div>
+        <div style="font-size:13px;opacity:0.85;">${phrase.text_en}</div>
+      </div>
+      <button onclick="playGMSPhrase('${phrase.text_kr.replace(/'/g, "\\'")}')"
+        style="width:100%;padding:14px;background:#f0f3ff;color:#667eea;border:2px solid #667eea;border-radius:14px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:12px;font-family:inherit;">
+        🔊 Écouter la phrase
+      </button>
+      <button onclick="recordGMSRepetition(${phrase.gms_id})"
+        style="width:100%;padding:14px;background:#667eea;color:white;border:none;border-radius:14px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:12px;font-family:inherit;">
+        🎤 Répéter
+      </button>
+      <div style="display:flex;gap:8px;">
+        <button onclick="rateGMSDrill(${phrase.gms_id}, false)"
+          style="flex:1;padding:12px;background:#fce4ec;color:#e53935;border:none;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">
+          ❌ Difficile
+        </button>
+        <button onclick="rateGMSDrill(${phrase.gms_id}, true)"
+          style="flex:1;padding:12px;background:#e8f5e9;color:#00a884;border:none;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">
+          ✅ Maîtrisé
+        </button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  setTimeout(() => { if (!AudioGate.isMuted()) speakKorean(phrase.text_kr); }, 500);
+}
+
+function playGMSPhrase(textKr) {
+  if (!AudioGate.isMuted()) speakKorean(textKr);
+}
+
+async function recordGMSRepetition(gmsId) {
+  showToast('🎤 Appuyez et maintenez le bouton micro');
+}
+
+async function rateGMSDrill(gmsId, success) {
+  const phrase = STATE.gmsDrillPhrases?.find(p => p.gms_id === gmsId);
+  if (window.supabaseClient) {
+    await window.supabaseClient.from('review_items').upsert({
+      user_id: window.kocoUserId,
+      unit_id: `GMS_${gmsId}`,
+      original: phrase?.text_kr || '',
+      fixed: phrase?.text_kr || '',
+      note: 'GMS Drill',
+      error_type: 'gms_drill',
+      interval_days: success ? 3 : 1,
+      next_review_at: new Date(Date.now() + (success ? 3 : 1) * 86400000).toISOString(),
+      last_reviewed_at: new Date().toISOString(),
+      review_count: 1,
+    }, { onConflict: 'user_id,unit_id' });
+  }
+
+  const nextIndex = (STATE.gmsDrillIndex || 0) + 1;
+  document.getElementById('gmsDrillModal')?.remove();
+
+  if (nextIndex < (STATE.gmsDrillPhrases?.length || 0)) {
+    STATE.gmsDrillIndex = nextIndex;
+    showGMSDrillModal(STATE.gmsDrillPhrases[nextIndex], nextIndex, STATE.gmsDrillPhrases.length);
+  } else {
+    showToast('🎉 GMS Drill terminé ! 오늘도 수고했어요!');
+    STATE.gmsDrillCompletedToday = true;
+    localStorage.setItem('koco_last_gms_drill', new Date().toDateString());
+  }
+}
+
+window.startGMSDrill = startGMSDrill;
+window.playGMSPhrase = playGMSPhrase;
+window.recordGMSRepetition = recordGMSRepetition;
+window.rateGMSDrill = rateGMSDrill;
+
+// ─── End GMS Drill ───────────────────────────────────────────────────────────
+
 //#region Session summary
 function openSessionSummary() {
   stopSessionTimers();
@@ -3445,6 +3575,12 @@ function initApp() {
   checkDueReviews();
   loadRecurringErrors();
   checkStagingBadge();
+
+  // Propose le GMS Drill si pas encore fait aujourd'hui
+  const lastDrill = localStorage.getItem('koco_last_gms_drill');
+  if (lastDrill !== new Date().toDateString()) {
+    setTimeout(() => showToast('🎯 GMS Drill du jour disponible → menu ···'), 3000);
+  }
   startSessionTimers();
 
   const apiKey = getApiKey();

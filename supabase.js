@@ -29,6 +29,41 @@ async function saveCorrection(originalText, correctedText, explanation) {
 window.saveCorrection = saveCorrection;
 
 // Sauvegarder une session dans Supabase
+const _gmsCache = {};
+
+async function getGMSBySituation(situationTag, limit = 5) {
+  const cacheKey = `gms_situation_${situationTag}`;
+  if (_gmsCache[cacheKey]) return _gmsCache[cacheKey];
+
+  const { data, error } = await window.supabaseClient
+    .from('gms_sentences')
+    .select('gms_id, text_kr, text_en, speech_level, snu_unit, situation_tag')
+    .eq('situation_tag', situationTag)
+    .eq('speech_level', 'POLITE')
+    .order('gms_id')
+    .limit(limit);
+
+  if (error) {
+    console.error('getGMSBySituation error:', JSON.stringify(error));
+    return [];
+  }
+  _gmsCache[cacheKey] = data || [];
+  return _gmsCache[cacheKey];
+}
+window.getGMSBySituation = getGMSBySituation;
+
+async function getDueGMSDrills(userId, limit = 5) {
+  const { data, error } = await window.supabaseClient
+    .from('gms_sentences')
+    .select('gms_id, text_kr, text_en, situation_tag, speech_level')
+    .order('gms_id')
+    .limit(limit * 3);
+
+  if (error || !data) return [];
+  return data.sort(() => Math.random() - 0.5).slice(0, limit);
+}
+window.getDueGMSDrills = getDueGMSDrills;
+
 async function getGMSSentences(snuUnit, limit = 20) {
   try {
     console.log('Fetching GMS for unit:', snuUnit);

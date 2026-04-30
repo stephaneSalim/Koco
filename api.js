@@ -369,6 +369,23 @@ window.resolveMissionConfig = resolveMissionConfig;
  * @returns {string} System prompt for Claude
  */
 
+function detectSituation(userMessage) {
+  const msg = (userMessage || '').toLowerCase();
+  const situations = {
+    SHOPPING: ['슈퍼', '마트', '가격', '얼마', '사다', '구매', '쇼핑', 'prix', 'acheter', 'magasin', 'supermarché'],
+    HEALTH:   ['병원', '의사', '아프다', '약', '치료', '증상', 'médecin', 'hôpital', 'malade', 'médicament'],
+    WORK:     ['회사', '직장', '업무', '회의', '상사', '동료', 'travail', 'bureau', 'réunion', 'collègue'],
+    ADMIN:    ['서류', '비자', '은행', '행정', '신청', '등록', 'visa', 'banque', 'administration', 'document'],
+    TRAVEL:   ['지하철', '버스', '택시', '길', '역', '공항', 'métro', 'bus', 'taxi', 'chemin', 'gare'],
+    ACADEMIC: ['수업', '교수', '논문', '연구', '학교', '대학', 'cours', 'professeur', 'thèse', 'recherche'],
+    SOCIAL:   ['친구', '약속', '만나다', '식당', '카페', 'ami', 'rendez-vous', 'restaurant', 'café'],
+  };
+  for (const [tag, keywords] of Object.entries(situations)) {
+    if (keywords.some(kw => msg.includes(kw))) return tag;
+  }
+  return 'GENERAL';
+}
+
 // Hiérarchie stricte du contexte injecté — max 800 tokens
 function buildContextBlock(recurringErrors, lessonData, gmsData, missionSheet) {
   let tokens = 0;
@@ -888,11 +905,19 @@ ${lessonData.map(u => `  Unité: ${u.unit_id || ''}
 </my_notes>`
       : '<my_notes>vide</my_notes>';
 
+    const detectedSituation = context.detectedSituation || 'GENERAL';
     const gmsRefBlock = gmsData.length > 0
-      ? `<gms_ref>
+      ? `<gms_ref situation="${detectedSituation}">
 ${gmsData.map(s => `• ${s.text_kr} — ${s.text_en} [${s.situation_tag || ''}/${s.speech_level || ''}]`).join('\n')}
-</gms_ref>`
-      : '<gms_ref>vide</gms_ref>';
+</gms_ref>
+
+RÈGLE GMS TERRAIN :
+1. Utilise ces phrases comme MODÈLES de réponse
+2. Variante Cours → vocabulaire lesson_content
+3. Variante Fluency → structure des phrases GMS
+4. Situation détectée : ${detectedSituation} → priorise les phrases GMS de ce contexte
+5. Ne jamais inventer de phrases hors GMS si disponibles`
+      : `<gms_ref situation="${detectedSituation}">vide</gms_ref>`;
 
     return `Tu es KoCo-Terrain, assistant de vie quotidienne en Corée.
 Tu aides à naviguer des situations réelles en utilisant
