@@ -3058,6 +3058,198 @@ async function loadRecurringErrors() {
   }
 }
 
+// ─── Staging UI ──────────────────────────────────────────────────────────────
+
+async function checkStagingBadge() {
+  try {
+    const { count } = await window.supabaseClient
+      .from('lesson_content_staging')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', window.kocoUserId)
+      .eq('status', 'pending');
+
+    const btn = document.getElementById('stagingBtn');
+    if (btn) {
+      btn.style.display = count > 0 ? 'flex' : 'none';
+      btn.title = `📋 ${count} élément${count > 1 ? 's' : ''} en attente`;
+    }
+  } catch (e) {
+    console.warn('[KoCo] checkStagingBadge error:', e);
+  }
+}
+
+async function openStagingUI() {
+  const { data: items } = await window.supabaseClient
+    .from('lesson_content_staging')
+    .select('*')
+    .eq('user_id', window.kocoUserId)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false });
+
+  if (!items?.length) {
+    showToast('📭 Aucun contenu en attente de validation');
+    return;
+  }
+
+  const modal = document.createElement('div');
+  modal.id = 'stagingModal';
+  modal.style.cssText = `
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 9999;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+  `;
+
+  modal.innerHTML = `
+    <div style="
+      background: white;
+      border-radius: 24px 24px 0 0;
+      width: 100%;
+      max-width: 480px;
+      max-height: 85vh;
+      overflow-y: auto;
+      padding: 20px;
+    ">
+      <div style="
+        width: 38px; height: 4px;
+        background: #e2e8f0;
+        border-radius: 4px;
+        margin: 0 auto 16px;
+      "></div>
+
+      <div style="font-size:17px;font-weight:700;margin-bottom:4px">
+        📋 Staging — Validation
+      </div>
+      <div style="font-size:12px;color:#8696A0;margin-bottom:16px">
+        ${items.length} élément${items.length > 1 ? 's' : ''} en attente
+      </div>
+
+      ${items.map(item => `
+        <div class="staging-item" data-id="${item.id}" style="
+          background: ${item.quality_flag === 'AUTO_APPROVE' ? '#f0fff4' : '#fffbf0'};
+          border: 1px solid ${item.quality_flag === 'AUTO_APPROVE' ? '#00a884' : '#f7931e'};
+          border-radius: 14px;
+          padding: 14px;
+          margin-bottom: 12px;
+        ">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <span style="font-size:13px;font-weight:700">${item.unit_id}</span>
+            <span style="font-size:11px;font-weight:700;color:${item.quality_flag === 'AUTO_APPROVE' ? '#00a884' : '#f7931e'};">
+              ${item.quality_flag === 'AUTO_APPROVE' ? '✅ Auto-approve' : '⚠️ Review required'}
+            </span>
+          </div>
+
+          <div style="font-size:12px;color:#8696A0;margin-bottom:6px">
+            📊 ${item.printed_vocab?.length || 0} mots ·
+            ${item.printed_structures?.length || 0} structures ·
+            confiance: ${Math.round((item.ocr_confidence || 0) * 100)}%
+          </div>
+
+          <div style="margin-bottom:8px">
+            <div style="font-size:11px;font-weight:700;color:#667eea;margin-bottom:4px">VOCABULAIRE</div>
+            <textarea
+              id="vocab-${item.id}"
+              style="width:100%;border:1px solid #e5e5e5;border-radius:8px;padding:8px;font-size:12px;resize:none;font-family:inherit;box-sizing:border-box;"
+              rows="3"
+            >${(item.printed_vocab || []).join(', ')}</textarea>
+          </div>
+
+          <div style="margin-bottom:10px">
+            <div style="font-size:11px;font-weight:700;color:#667eea;margin-bottom:4px">STRUCTURES</div>
+            <textarea
+              id="struct-${item.id}"
+              style="width:100%;border:1px solid #e5e5e5;border-radius:8px;padding:8px;font-size:12px;resize:none;font-family:inherit;box-sizing:border-box;"
+              rows="2"
+            >${(item.printed_structures || []).join(', ')}</textarea>
+          </div>
+
+          ${item.handwritten_notes?.length > 0 ? `
+          <div style="background:rgba(102,126,234,0.06);border-radius:8px;padding:8px;margin-bottom:10px;font-size:12px;">
+            ✍️ Notes manuscrites: ${item.handwritten_notes.join(' · ')}
+          </div>
+          ` : ''}
+
+          ${item.ambiguous?.length > 0 ? `
+          <div style="background:#fff5f5;border-radius:8px;padding:8px;margin-bottom:10px;font-size:12px;color:#e53935;">
+            ❓ Incertain: ${JSON.stringify(item.ambiguous)}
+          </div>
+          ` : ''}
+
+          <div style="display:flex;gap:8px">
+            <button
+              onclick="commitStaging('${item.id}')"
+              style="flex:2;background:#667eea;color:white;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;">
+              ✅ Valider et committer
+            </button>
+            <button
+              onclick="rejectStaging('${item.id}')"
+              style="flex:1;background:#f8f8f8;border:1px solid #e5e5e5;border-radius:10px;padding:10px;font-size:13px;cursor:pointer;color:#e53935;font-weight:600;">
+              ❌ Rejeter
+            </button>
+          </div>
+        </div>
+      `).join('')}
+
+      <button onclick="document.getElementById('stagingModal').remove()"
+        style="width:100%;background:#f8f8f8;border:none;border-radius:12px;padding:12px;font-size:14px;cursor:pointer;color:#8696A0;margin-top:8px;">
+        Fermer
+      </button>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+}
+
+async function commitStaging(stagingId) {
+  const vocabEl = document.getElementById(`vocab-${stagingId}`);
+  const structEl = document.getElementById(`struct-${stagingId}`);
+
+  const approvedVocab = vocabEl?.value.split(',').map(v => v.trim()).filter(Boolean) || [];
+  const approvedStructures = structEl?.value.split(',').map(s => s.trim()).filter(Boolean) || [];
+
+  const response = await fetch('/api/staging-commit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      stagingId,
+      userId: window.kocoUserId,
+      approved_vocab: approvedVocab,
+      approved_structures: approvedStructures
+    })
+  });
+
+  const data = await response.json();
+
+  if (data.success) {
+    document.querySelector(`[data-id="${stagingId}"]`)?.remove();
+    showToast(`✅ Commité: ${data.merged.vocab} mots · ${data.merged.structures} structures`);
+    if (window.invalidateHealthCache) window.invalidateHealthCache(data.unit_id);
+    checkStagingBadge();
+  } else {
+    showToast('❌ Erreur commit: ' + data.error);
+  }
+}
+
+async function rejectStaging(stagingId) {
+  await window.supabaseClient
+    .from('lesson_content_staging')
+    .update({ status: 'rejected' })
+    .eq('id', stagingId);
+
+  document.querySelector(`[data-id="${stagingId}"]`)?.remove();
+  showToast('🗑️ Entrée rejetée');
+  checkStagingBadge();
+}
+
+window.commitStaging = commitStaging;
+window.rejectStaging = rejectStaging;
+window.openStagingUI = openStagingUI;
+
+// ─── End Staging UI ───────────────────────────────────────────────────────────
+
 function initApp() {
   conversationManager = new ConversationManager();
   STATE.session.sessionStart = Date.now();
@@ -3117,6 +3309,7 @@ function initApp() {
 
   checkDueReviews();
   loadRecurringErrors();
+  checkStagingBadge();
   startSessionTimers();
 
   const apiKey = getApiKey();
