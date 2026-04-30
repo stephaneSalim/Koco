@@ -3,6 +3,20 @@
  * app.js — Application logic, modes, speech recognition, localStorage
  */
 
+const GMS_DRILL_CONFIG = {
+  PASS_THRESHOLD: 80,
+  MAX_ATTEMPTS: 3,
+  SRS_INTERVALS: {
+    mastered_high: 7,
+    mastered_mid: 3,
+    difficult: 1,
+    failed: 1,
+  },
+};
+
+let _drillAttempts = {};
+let _drillBestScore = {};
+
 let _currentTtsAudio = null; // hoisted — AudioGate.setMuted() needs this
 let sessionTargetsUsed = new Set();
 
@@ -2471,107 +2485,310 @@ function showDistillerNotification(count) {
 
 //#endregion
 
-// ─── GMS Drill quotidien ────────────────────────────────────────────────────
+// ─── GMS Drill quotidien — Shadowing mécanique ──────────────────────────────
 
 async function startGMSDrill() {
   const phrases = await window.getDueGMSDrills(window.kocoUserId, 5);
-  if (!phrases?.length) {
-    showToast('GMS phrases non disponibles');
-    return;
-  }
+  if (!phrases?.length) { showToast('GMS phrases non disponibles'); return; }
   STATE.gmsDrillPhrases = phrases;
   STATE.gmsDrillIndex = 0;
+  _drillAttempts = {};
+  _drillBestScore = {};
   showGMSDrillModal(phrases[0], 0, phrases.length);
 }
 
 function showGMSDrillModal(phrase, index, total) {
   document.getElementById('gmsDrillModal')?.remove();
+
+  const attempts  = _drillAttempts[phrase.gms_id]  || 0;
+  const bestScore = _drillBestScore[phrase.gms_id] || 0;
+  const passed    = bestScore >= GMS_DRILL_CONFIG.PASS_THRESHOLD;
+  const maxReached = attempts >= GMS_DRILL_CONFIG.MAX_ATTEMPTS;
+
+  const attemptsBar = Array.from({ length: GMS_DRILL_CONFIG.MAX_ATTEMPTS })
+    .map((_, i) => `<div style="width:28px;height:6px;border-radius:3px;background:${
+      i < attempts ? (bestScore >= GMS_DRILL_CONFIG.PASS_THRESHOLD ? '#00a884' : '#e53935') : '#e5e5e5'
+    };transition:background 0.3s;"></div>`).join('');
+
   const modal = document.createElement('div');
   modal.id = 'gmsDrillModal';
-  modal.style.cssText = `
-    position:fixed;inset:0;background:rgba(0,0,0,0.6);
-    z-index:9999;display:flex;align-items:flex-end;justify-content:center;
-  `;
+  modal.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:9999;display:flex;align-items:flex-end;justify-content:center;`;
   modal.innerHTML = `
-    <div style="background:white;border-radius:24px 24px 0 0;width:100%;max-width:480px;padding:24px 20px 40px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-        <div style="font-size:13px;font-weight:700;color:#667eea">🎯 GMS Drill ${index + 1}/${total}</div>
-        <div style="font-size:11px;color:#8696A0;background:#f0f3ff;padding:4px 10px;border-radius:10px;font-weight:600;">
-          ${phrase.situation_tag || 'GMS'} · ${phrase.speech_level || 'POLITE'}
+    <div style="background:white;border-radius:28px 28px 0 0;width:100%;max-width:480px;padding:20px 20px 40px;max-height:90vh;overflow-y:auto;">
+      <div style="width:36px;height:4px;background:#e2e8f0;border-radius:4px;margin:0 auto 16px;"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div>
+          <div style="font-size:13px;font-weight:700;color:#667eea">🎯 Shadowing ${index + 1}/${total}</div>
+          <div style="font-size:11px;color:#8696A0;margin-top:2px">${phrase.situation_tag || 'GMS'} · ${phrase.speech_level || 'POLITE'}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:11px;color:#8696A0;margin-bottom:4px">Tentatives</div>
+          <div style="display:flex;gap:4px">${attemptsBar}</div>
         </div>
       </div>
-      <div style="background:linear-gradient(135deg,#667eea,#764ba2);border-radius:16px;padding:24px;text-align:center;margin-bottom:16px;color:white;">
-        <div style="font-size:22px;font-weight:700;line-height:1.4;margin-bottom:12px;font-family:'Noto Sans KR',sans-serif;">
-          ${phrase.text_kr}
-        </div>
-        <div style="font-size:13px;opacity:0.85;">${phrase.text_en}</div>
+      <div style="background:linear-gradient(135deg,#667eea,#764ba2);border-radius:18px;padding:20px;text-align:center;margin-bottom:14px;position:relative;overflow:hidden;">
+        <div style="position:absolute;top:-20px;right:-20px;width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,0.08);"></div>
+        <div style="font-size:22px;font-weight:700;color:white;line-height:1.4;margin-bottom:10px;font-family:'Noto Sans KR',sans-serif;position:relative;" id="targetPhrase_${phrase.gms_id}">${phrase.text_kr}</div>
+        <div style="font-size:13px;color:rgba(255,255,255,0.8);position:relative;">${phrase.text_en}</div>
       </div>
+      ${bestScore > 0 ? `
+      <div style="display:flex;align-items:center;gap:10px;background:#f8f9fa;border-radius:12px;padding:10px 14px;margin-bottom:12px;">
+        <div style="font-size:22px;font-weight:900;color:${bestScore >= 80 ? '#00a884' : '#f7931e'};">${bestScore}%</div>
+        <div>
+          <div style="font-size:12px;font-weight:600;color:#1a1a1a">Meilleur score</div>
+          <div style="font-size:11px;color:#8696A0">${bestScore >= 80 ? '✅ Seuil atteint !' : `❌ Seuil: ${GMS_DRILL_CONFIG.PASS_THRESHOLD}%`}</div>
+        </div>
+        <div style="flex:1"><div style="background:#e5e5e5;border-radius:4px;height:6px;overflow:hidden;"><div style="width:${bestScore}%;height:100%;background:${bestScore >= 80 ? '#00a884' : '#f7931e'};border-radius:4px;transition:width 0.5s ease;"></div></div></div>
+      </div>` : ''}
+      <div id="shadowingResult_${phrase.gms_id}" style="margin-bottom:12px;display:none;"></div>
       <button onclick="playGMSPhrase('${phrase.text_kr.replace(/'/g, "\\'")}')"
-        style="width:100%;padding:14px;background:#f0f3ff;color:#667eea;border:2px solid #667eea;border-radius:14px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:12px;font-family:inherit;">
+        style="width:100%;padding:12px;background:#f0f3ff;color:#667eea;border:2px solid #667eea;border-radius:14px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:10px;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;">
         🔊 Écouter la phrase
       </button>
-      <button onclick="recordGMSRepetition(${phrase.gms_id})"
-        style="width:100%;padding:14px;background:#667eea;color:white;border:none;border-radius:14px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:12px;font-family:inherit;">
-        🎤 Répéter
+      <button id="recordBtn_${phrase.gms_id}"
+        data-gms-id="${phrase.gms_id}"
+        data-target="${phrase.text_kr.replace(/"/g, '&quot;')}"
+        onpointerdown="startShadowing(event,${phrase.gms_id})"
+        onpointerup="stopShadowing(event,${phrase.gms_id})"
+        onpointerleave="stopShadowing(event,${phrase.gms_id})"
+        style="width:100%;padding:16px;background:#667eea;color:white;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:14px;font-family:inherit;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:none;transition:all 0.15s;">
+        🎤 Maintenir pour parler
       </button>
-      <div style="display:flex;gap:8px;">
-        <button onclick="rateGMSDrill(${phrase.gms_id}, false)"
-          style="flex:1;padding:12px;background:#fce4ec;color:#e53935;border:none;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">
-          ❌ Difficile
-        </button>
-        <button onclick="rateGMSDrill(${phrase.gms_id}, true)"
-          style="flex:1;padding:12px;background:#e8f5e9;color:#00a884;border:none;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">
-          ✅ Maîtrisé
-        </button>
+      <div id="ratingBtns_${phrase.gms_id}" style="display:${passed || maxReached ? 'flex' : 'none'};gap:10px;">
+        <button onclick="rateGMSDrill(${phrase.gms_id},false)"
+          style="flex:1;padding:14px;background:#fce4ec;color:#e53935;border:none;border-radius:14px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">❌ Difficile</button>
+        <button onclick="rateGMSDrill(${phrase.gms_id},true)"
+          style="flex:1;padding:14px;background:#e8f5e9;color:#00a884;border:none;border-radius:14px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">✅ Maîtrisé</button>
       </div>
+      ${!passed && !maxReached ? `
+      <div style="text-align:center;font-size:12px;color:#8696A0;margin-top:8px;">
+        Atteins ${GMS_DRILL_CONFIG.PASS_THRESHOLD}% pour débloquer
+        (${GMS_DRILL_CONFIG.MAX_ATTEMPTS - attempts} essai${GMS_DRILL_CONFIG.MAX_ATTEMPTS - attempts > 1 ? 's' : ''} restant${GMS_DRILL_CONFIG.MAX_ATTEMPTS - attempts > 1 ? 's' : ''})
+      </div>` : ''}
     </div>
   `;
   document.body.appendChild(modal);
-  setTimeout(() => { if (!AudioGate.isMuted()) speakKorean(phrase.text_kr); }, 500);
+  if (attempts === 0) {
+    setTimeout(() => { if (!AudioGate.isMuted()) speakKorean(phrase.text_kr); }, 600);
+  }
 }
 
 function playGMSPhrase(textKr) {
   if (!AudioGate.isMuted()) speakKorean(textKr);
 }
 
-async function recordGMSRepetition(gmsId) {
-  showToast('🎤 Appuyez et maintenez le bouton micro');
+async function startShadowing(event, gmsId) {
+  event.preventDefault();
+  const btn = document.getElementById(`recordBtn_${gmsId}`);
+  if (!btn) return;
+  btn.style.background = '#e53935';
+  btn.style.transform = 'scale(0.97)';
+  btn.textContent = '🔴 Parlez maintenant...';
+  try {
+    await startRecording();
+  } catch(e) {
+    showToast('❌ Microphone non disponible');
+    btn.style.background = '#667eea';
+    btn.style.transform = 'scale(1)';
+    btn.textContent = '🎤 Maintenir pour parler';
+  }
+}
+
+async function stopShadowing(event, gmsId) {
+  event.preventDefault();
+  const btn = document.getElementById(`recordBtn_${gmsId}`);
+  if (!btn || btn.style.background !== 'rgb(229, 57, 53)') return;
+
+  btn.style.background = '#667eea';
+  btn.style.transform = 'scale(1)';
+  btn.textContent = '⏳ Analyse en cours...';
+  btn.disabled = true;
+
+  try {
+    const transcript = await stopRecording();
+    if (!transcript?.trim()) {
+      showToast('❌ Aucun son détecté — réessaie');
+      btn.textContent = '🎤 Maintenir pour parler';
+      btn.disabled = false;
+      return;
+    }
+
+    const phrase = STATE.gmsDrillPhrases?.find(p => p.gms_id === gmsId);
+    if (!phrase) return;
+
+    const result = analyzeShadowing(phrase.text_kr, transcript);
+    _drillAttempts[gmsId]  = (_drillAttempts[gmsId]  || 0) + 1;
+    _drillBestScore[gmsId] = Math.max(_drillBestScore[gmsId] || 0, result.score);
+
+    showShadowingResult(gmsId, result, phrase.text_kr, transcript);
+
+    btn.textContent = '🎤 Maintenir pour parler';
+    btn.disabled = false;
+
+    const passed     = _drillBestScore[gmsId] >= GMS_DRILL_CONFIG.PASS_THRESHOLD;
+    const maxReached = _drillAttempts[gmsId]  >= GMS_DRILL_CONFIG.MAX_ATTEMPTS;
+
+    if (passed || maxReached) {
+      const ratingBtns = document.getElementById(`ratingBtns_${gmsId}`);
+      if (ratingBtns) {
+        ratingBtns.style.display = 'flex';
+        ratingBtns.scrollIntoView({ behavior: 'smooth' });
+      }
+      showToast(passed
+        ? `✅ ${result.score}% — Seuil atteint ! Évalue ta performance.`
+        : `⏰ 3 tentatives épuisées — évalue quand même`);
+    } else {
+      const remaining = GMS_DRILL_CONFIG.MAX_ATTEMPTS - _drillAttempts[gmsId];
+      showToast(`${result.score}% — ${remaining} essai${remaining > 1 ? 's' : ''} restant${remaining > 1 ? 's' : ''}`);
+    }
+  } catch(e) {
+    console.error('stopShadowing error:', e);
+    btn.textContent = '🎤 Maintenir pour parler';
+    btn.disabled = false;
+  }
+}
+
+function analyzeShadowing(target, transcript) {
+  const clean = text => text.replace(/[^가-힣\s]/g, '').trim().split(/\s+/).filter(Boolean);
+  const targetWords     = clean(target);
+  const transcriptWords = clean(transcript);
+  if (targetWords.length === 0) return { score: 0, words: [], matched: 0, partial: 0, total: 0 };
+
+  const wordResults = targetWords.map((word, i) => {
+    const tw = transcriptWords[i];
+    if (!tw)                               return { word, status: 'omitted',     transcriptWord: null };
+    if (tw === word)                       return { word, status: 'matched',     transcriptWord: tw };
+    if (tw.slice(0, 2) === word.slice(0, 2)) return { word, status: 'partial', transcriptWord: tw };
+    return                                        { word, status: 'substituted', transcriptWord: tw };
+  });
+
+  const matched = wordResults.filter(w => w.status === 'matched').length;
+  const partial = wordResults.filter(w => w.status === 'partial').length;
+  const score   = Math.round(((matched + partial * 0.5) / targetWords.length) * 100);
+  return { score, words: wordResults, matched, partial, total: targetWords.length, transcript };
+}
+
+function showShadowingResult(gmsId, result, target, transcript) {
+  const resultDiv = document.getElementById(`shadowingResult_${gmsId}`);
+  if (!resultDiv) return;
+  resultDiv.style.display = 'block';
+
+  const colorsMap = {
+    matched:     { bg: '#e8f5e9', color: '#00a884', border: '#00a884' },
+    partial:     { bg: '#fff3e0', color: '#f7931e', border: '#f7931e' },
+    omitted:     { bg: '#f5f5f5', color: '#9e9e9e', border: '#e0e0e0' },
+    substituted: { bg: '#fce4ec', color: '#e53935', border: '#e53935' },
+  };
+  const coloredWords = result.words.map(w => {
+    const c = colorsMap[w.status];
+    return `<span style="display:inline-block;background:${c.bg};color:${c.color};border:1px solid ${c.border};border-radius:6px;padding:2px 6px;margin:2px;font-size:14px;font-weight:600;${w.status === 'omitted' ? 'text-decoration:line-through;' : ''}">${w.word}${w.status === 'substituted' ? `<span style="font-size:10px;opacity:0.7"> →${w.transcriptWord}</span>` : ''}</span>`;
+  }).join('');
+
+  const sc = result.score >= 80 ? '#00a884' : result.score >= 60 ? '#f7931e' : '#e53935';
+  resultDiv.innerHTML = `
+    <div style="background:#f8f9fa;border-radius:14px;padding:14px;margin-bottom:10px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+        <div style="width:52px;height:52px;border-radius:50%;background:${sc}15;border:3px solid ${sc};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;color:${sc};flex-shrink:0;">${result.score}%</div>
+        <div style="flex:1">
+          <div style="background:#e5e5e5;height:8px;border-radius:4px;overflow:hidden;">
+            <div style="width:${result.score}%;height:100%;background:${sc};border-radius:4px;transition:width 0.8s ease;"></div>
+          </div>
+          <div style="font-size:11px;color:#8696A0;margin-top:4px;">${result.matched}/${result.total} mots corrects${result.partial > 0 ? ` · ${result.partial} partiels` : ''}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+        <span style="font-size:10px;color:#00a884">✅ Correct</span>
+        <span style="font-size:10px;color:#f7931e">〰️ Partiel</span>
+        <span style="font-size:10px;color:#e53935">❌ Substitué</span>
+        <span style="font-size:10px;color:#9e9e9e">⬜ Omis</span>
+      </div>
+      <div style="line-height:2;margin-bottom:10px;">${coloredWords}</div>
+      <div style="font-size:12px;color:#8696A0;font-style:italic;">Tu as dit : "${transcript}"</div>
+    </div>
+  `;
 }
 
 async function rateGMSDrill(gmsId, success) {
-  const phrase = STATE.gmsDrillPhrases?.find(p => p.gms_id === gmsId);
-  if (window.supabaseClient) {
-    await window.supabaseClient.from('review_items').upsert({
-      user_id: window.kocoUserId,
-      unit_id: `GMS_${gmsId}`,
-      original: phrase?.text_kr || '',
-      fixed: phrase?.text_kr || '',
-      note: 'GMS Drill',
-      error_type: 'gms_drill',
-      interval_days: success ? 3 : 1,
-      next_review_at: new Date(Date.now() + (success ? 3 : 1) * 86400000).toISOString(),
-      last_reviewed_at: new Date().toISOString(),
-      review_count: 1,
-    }, { onConflict: 'user_id,unit_id' });
+  const phrase    = STATE.gmsDrillPhrases?.find(p => p.gms_id === gmsId);
+  if (!phrase) return;
+
+  const bestScore = _drillBestScore[gmsId] || 0;
+  const attempts  = _drillAttempts[gmsId]  || 1;
+
+  let interval, successRate;
+  if (!success) {
+    interval = GMS_DRILL_CONFIG.SRS_INTERVALS.difficult;   successRate = 0.2;
+  } else if (bestScore >= 90) {
+    interval = GMS_DRILL_CONFIG.SRS_INTERVALS.mastered_high; successRate = 1.0;
+  } else if (bestScore >= 80) {
+    interval = GMS_DRILL_CONFIG.SRS_INTERVALS.mastered_mid;  successRate = 0.8;
+  } else {
+    interval = GMS_DRILL_CONFIG.SRS_INTERVALS.failed;       successRate = 0.4;
   }
 
-  const nextIndex = (STATE.gmsDrillIndex || 0) + 1;
+  const { error } = await window.supabaseClient
+    .from('review_items')
+    .upsert({
+      user_id: window.kocoUserId,
+      unit_id: `GMS_${gmsId}`,
+      original: phrase.text_kr,
+      fixed: phrase.text_kr,
+      note: `GMS·${phrase.situation_tag}·${phrase.speech_level}·score:${bestScore}%`,
+      error_type: 'gms_shadowing',
+      success_rate: successRate,
+      interval_days: interval,
+      next_review_at: new Date(Date.now() + interval * 86400000).toISOString(),
+      last_reviewed_at: new Date().toISOString(),
+      review_count: attempts,
+      recurrence_count: success ? 1 : 2,
+    }, { onConflict: 'user_id,unit_id', ignoreDuplicates: false });
+
+  if (error) console.error('rateGMSDrill SRS error:', JSON.stringify(error));
+
+  delete _drillAttempts[gmsId];
+  delete _drillBestScore[gmsId];
+
+  showToast(success
+    ? (bestScore >= 90 ? `🏆 Excellent ! Revu dans ${interval} jours` : `✅ Bien ! Revu dans ${interval} jours`)
+    : `💪 Continue ! Revu demain`);
+
   document.getElementById('gmsDrillModal')?.remove();
+  const nextIndex = (STATE.gmsDrillIndex || 0) + 1;
 
   if (nextIndex < (STATE.gmsDrillPhrases?.length || 0)) {
     STATE.gmsDrillIndex = nextIndex;
     showGMSDrillModal(STATE.gmsDrillPhrases[nextIndex], nextIndex, STATE.gmsDrillPhrases.length);
   } else {
-    showToast('🎉 GMS Drill terminé ! 오늘도 수고했어요!');
-    STATE.gmsDrillCompletedToday = true;
     localStorage.setItem('koco_last_gms_drill', new Date().toDateString());
+    showGMSDrillSummary();
   }
 }
 
-window.startGMSDrill = startGMSDrill;
-window.playGMSPhrase = playGMSPhrase;
-window.recordGMSRepetition = recordGMSRepetition;
-window.rateGMSDrill = rateGMSDrill;
+function showGMSDrillSummary() {
+  const total = STATE.gmsDrillPhrases?.length || 0;
+  const notif = document.createElement('div');
+  notif.style.cssText = `
+    position:fixed;bottom:100px;left:50%;transform:translateX(-50%);
+    background:linear-gradient(135deg,#667eea,#764ba2);color:white;
+    padding:16px 24px;border-radius:20px;font-size:14px;font-weight:700;
+    z-index:9999;text-align:center;
+    box-shadow:0 8px 24px rgba(102,126,234,0.4);
+    animation:notifFadeIn 0.3s ease;
+  `;
+  notif.innerHTML = `🎉 GMS Drill terminé !<br><span style="font-size:12px;opacity:0.9;font-weight:400">${total} phrases · 오늘도 수고했어요! 화이팅!</span>`;
+  document.body.appendChild(notif);
+  setTimeout(() => {
+    notif.style.opacity = '0';
+    notif.style.transition = 'opacity 0.5s';
+    setTimeout(() => notif.remove(), 500);
+  }, 4000);
+}
+
+window.startGMSDrill       = startGMSDrill;
+window.playGMSPhrase       = playGMSPhrase;
+window.startShadowing      = startShadowing;
+window.stopShadowing       = stopShadowing;
+window.rateGMSDrill        = rateGMSDrill;
 
 // ─── End GMS Drill ───────────────────────────────────────────────────────────
 
