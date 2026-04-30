@@ -2302,9 +2302,27 @@ function closeDrillModal() {
 //#region Distillateur
 
 async function runDistiller(corrections, unitId, userId) {
-  if (!corrections || corrections.length === 0) return;
+  if (!corrections?.length) return;
 
-  console.log('Distillateur lancé pour', corrections.length, 'corrections');
+  const significant = corrections.filter(
+    c => c.status === 'major' || c.status === 'minor'
+  );
+
+  if (significant.length < 3) {
+    console.log('Distillateur skipped: only', significant.length, 'significant errors (min 3)');
+    return;
+  }
+
+  const sessionDuration = STATE.session.sessionStart
+    ? Math.floor((Date.now() - STATE.session.sessionStart) / 1000)
+    : 0;
+
+  if (sessionDuration < 300) {
+    console.log('Distillateur skipped: session too short', sessionDuration, 's (min 300s)');
+    return;
+  }
+
+  console.log('Distillateur launched:', significant.length, 'errors |', Math.floor(sessionDuration / 60), 'min session');
 
   try {
     const endpoint = isLocal ? 'http://localhost:3000/api/distill' : '/api/distill';
