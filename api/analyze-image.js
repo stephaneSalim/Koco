@@ -3,10 +3,22 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  console.log('Image received:', {
+    hasImageBase64: !!req.body.imageBase64,
+    hasImage: !!req.body.image,
+    imageLength: (req.body.imageBase64 ?? req.body.image)?.length,
+    unitId: req.body.unitId,
+    userId: !!req.body.userId,
+    bodyKeys: Object.keys(req.body),
+  });
+
   const { imageBase64, unitId } = req.body;
 
   if (!imageBase64) {
-    return res.status(400).json({ error: 'imageBase64 required' });
+    return res.status(400).json({
+      error: 'imageBase64 required',
+      received: Object.keys(req.body),
+    });
   }
   if (!unitId) {
     return res.status(400).json({ error: "unitId manquant — requis pour l'extraction" });
