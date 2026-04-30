@@ -10,23 +10,17 @@
   <div id="app">
     <header class="app-header" id="appHeader">
 
-      <!-- ZONE 1 : Brand (gauche) -->
+      <!-- ZONE 1 : Brand + Unit (gauche) -->
       <div class="header-brand">
         <span class="header-logo">KoCo</span>
-      </div>
-
-      <!-- ZONE 2 : Context Badge (centre) -->
-      <div class="header-context">
         <button class="header-unit-badge" id="unitSelectorBtn" type="button">
           <span class="header-unit-title" id="headerUnitTitle">음식과 영양</span>
           <span class="header-unit-subtitle" id="headerUnitSubtitle">5A · Nutrition</span>
         </button>
       </div>
 
-      <!-- ZONE 3 : Controls (droite) -->
-      <div class="header-controls">
-
-        <!-- Mode Switcher compact -->
+      <!-- ZONE 2 : Mode Switcher (centre) -->
+      <div class="header-center">
         <div class="mode-switcher" id="modeSwitcher">
           <button class="mode-btn active" id="btnSpeak" onclick="setMode('speak')" aria-label="Mode Tutorat">
             <span class="mode-btn-icon">💬</span>
@@ -41,17 +35,26 @@
             <span class="mode-btn-label">Terrain</span>
           </button>
         </div>
+      </div>
 
-        <!-- Ghost Icons -->
+      <!-- ZONE 3 : Controls (droite) -->
+      <div class="header-controls">
         <div class="header-ghost-icons">
           <button class="ghost-icon" id="ttsToggle" aria-label="Volume">🔊</button>
-          <button class="ghost-icon" onclick="generateSNUMission()" title="Générer une mission SNU Graduate" type="button">🎓</button>
-          <button class="ghost-icon" id="stagingBtn" onclick="openStagingUI()" title="Valider le contenu en staging" type="button" style="display:none">📋</button>
+          <button class="ghost-icon" id="moreBtn" type="button" aria-label="Plus d'options">···</button>
           <button class="ghost-icon ghost-icon-stop" id="endSessionBtn" aria-label="Stop session" type="button">⏹</button>
         </div>
-
       </div>
+
     </header>
+
+    <!-- More Menu Dropdown -->
+    <div id="moreMenu" class="more-menu">
+      <button class="more-menu-item" onclick="generateSNUMission(); closeMoreMenu()">🎓 Mission SNU</button>
+      <button class="more-menu-item" id="stagingMenuItem" onclick="openStagingUI(); closeMoreMenu()" style="display:none">📋 Staging</button>
+      <button class="more-menu-item" onclick="fetchKnowledgeSnapshot(); closeMoreMenu()">🧠 Knowledge Snapshot</button>
+    </div>
+    <div id="moreMenuOverlay" onclick="closeMoreMenu()"></div>
 
     <div id="sessionSummaryModal" class="summary-modal hidden">
       <div class="summary-overlay"></div>

@@ -73,7 +73,8 @@ const STATE = {
   selectedMissionFormat: null,
   needsFrenchExplanation: false,
   knowledgeSnapshot: null,
-  recurringErrors: []
+  recurringErrors: [],
+  conversationStarted: false
 };
 
 // Normalize a Supabase snu_units row to a stable unit object used throughout the app
@@ -3058,7 +3059,65 @@ async function loadRecurringErrors() {
   }
 }
 
+// ─── Auto Conversation Start ─────────────────────────────────────────────────
+
+async function fetchOpeningMessage(systemPrompt) {
+  try {
+    const response = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        system: systemPrompt,
+        messages: [{ role: 'user', content: '시작해 주세요' }],
+        max_tokens: 200
+      })
+    });
+    const data = await response.json();
+    return data.content?.[0]?.text || null;
+  } catch (e) {
+    console.error('[KoCo] Opening message error:', e);
+    return null;
+  }
+}
+
+async function startConversation() {
+  if (!STATE.activeUnit) return;
+
+  const dataUnitId = getDataUnitId(STATE.unitId);
+  const context = getSessionContext(dataUnitId, parseInt(STATE.activeUnit?.level?.[1] || '3', 10) || 3);
+  context.unit = STATE.activeUnit;
+  context.unitId = STATE.unitId;
+  context.recurringErrors = STATE.recurringErrors || [];
+
+  const systemPrompt = generateSystemPrompt(context, STATE.mode, STATE.gmsSentences || [], STATE.pageContext);
+  const openingMsg = await fetchOpeningMessage(systemPrompt);
+  if (openingMsg) {
+    addMessage('assistant', openingMsg);
+    if (!AudioGate.isMuted()) speakKorean(openingMsg);
+  }
+}
+
 // ─── Staging UI ──────────────────────────────────────────────────────────────
+
+function toggleMoreMenu() {
+  const menu = document.getElementById('moreMenu');
+  const overlay = document.getElementById('moreMenuOverlay');
+  const isOpen = menu?.classList.contains('open');
+  if (isOpen) {
+    menu?.classList.remove('open');
+    overlay?.classList.remove('open');
+  } else {
+    menu?.classList.add('open');
+    overlay?.classList.add('open');
+  }
+}
+
+function closeMoreMenu() {
+  document.getElementById('moreMenu')?.classList.remove('open');
+  document.getElementById('moreMenuOverlay')?.classList.remove('open');
+}
+
+window.closeMoreMenu = closeMoreMenu;
 
 async function checkStagingBadge() {
   try {
@@ -3068,10 +3127,10 @@ async function checkStagingBadge() {
       .eq('user_id', window.kocoUserId)
       .eq('status', 'pending');
 
-    const btn = document.getElementById('stagingBtn');
-    if (btn) {
-      btn.style.display = count > 0 ? 'flex' : 'none';
-      btn.title = `📋 ${count} élément${count > 1 ? 's' : ''} en attente`;
+    const menuItem = document.getElementById('stagingMenuItem');
+    if (menuItem) {
+      menuItem.style.display = count > 0 ? 'flex' : 'none';
+      menuItem.title = `📋 ${count} élément${count > 1 ? 's' : ''} en attente`;
     }
   } catch (e) {
     console.warn('[KoCo] checkStagingBadge error:', e);
@@ -3284,25 +3343,31 @@ function initApp() {
   if (ttsGhost) ttsGhost.addEventListener('click', toggleTTS);
   updateTtsButton();
 
+  const moreBtn = document.getElementById('moreBtn');
+  if (moreBtn) moreBtn.addEventListener('click', toggleMoreMenu);
+
   initPushToTalk();
   initInputBar();
   initPhotoInput();
 
   if (window.getAllSNUUnits) {
-    window.getAllSNUUnits().then(allUnits => {
+    window.getAllSNUUnits().then(async allUnits => {
       const firstRow = allUnits.find(u => u.id === STATE.unitId) || allUnits[0];
       if (firstRow) {
         STATE.unitId = firstRow.id;
         STATE.activeUnit = normalizeSNUUnit(firstRow);
         const snuUnit = `${firstRow.level}_${firstRow.unit_number}`;
         if (window.getGMSSentences) {
-          window.getGMSSentences(snuUnit, 15).then(sentences => {
-            STATE.gmsSentences = sentences;
-            console.log(`GMS: ${sentences.length} phrases chargées pour ${snuUnit}`);
-          });
+          STATE.gmsSentences = await window.getGMSSentences(snuUnit, 15);
+          console.log(`GMS: ${STATE.gmsSentences.length} phrases chargées pour ${snuUnit}`);
         }
         updateHeader();
         updateContextGuard(STATE.unitId);
+      }
+
+      if (!STATE.conversationStarted && getApiKey()) {
+        STATE.conversationStarted = true;
+        await startConversation();
       }
     });
   }

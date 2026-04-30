@@ -1704,24 +1704,26 @@ input, button, textarea, select {
 /* ── Glassmorphic App Header ──────────────────── */
 .app-header {
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  padding: 10px 16px;
-  background: rgba(255, 255, 255, 0.75);
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(15px);
   -webkit-backdrop-filter: blur(15px);
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
   position: sticky;
   top: 0;
   z-index: 1000;
-  min-height: 56px;
+  min-height: 52px;
   gap: 8px;
 }
 
-/* Zone 1 : Brand */
+/* Zone 1 : Brand + Unit */
 .header-brand {
   display: flex;
   align-items: center;
+  gap: 6px;
+  min-width: 0;
 }
 
 .header-logo {
@@ -1732,25 +1734,24 @@ input, button, textarea, select {
   line-height: 1;
 }
 
-/* Zone 2 : Context Badge */
-.header-context {
+/* Zone 2 : Mode Switcher centre */
+.header-center {
   display: flex;
   justify-content: center;
   align-items: center;
-  min-width: 0;
 }
 
+/* Zone 1 unit badge — compact, inline */
 .header-unit-badge {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  text-align: center;
+  align-items: flex-start;
   min-width: 0;
   background: none;
   border: none;
   cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 10px;
+  padding: 2px 4px;
+  border-radius: 8px;
   -webkit-tap-highlight-color: transparent;
   transition: background 0.15s ease;
 }
@@ -1760,25 +1761,23 @@ input, button, textarea, select {
 }
 
 .header-unit-title {
-  font-size: 15px;
+  font-size: 12px;
   font-weight: 700;
   color: #1a1a1a;
   line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 160px;
+  max-width: 72px;
   transition: opacity 0.2s ease;
 }
 
 .header-unit-subtitle {
   font-size: 10px;
-  font-weight: 600;
+  font-weight: 500;
   color: #8696A0;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
   line-height: 1;
-  margin-top: 2px;
+  white-space: nowrap;
   transition: opacity 0.2s ease;
 }
 
@@ -1787,7 +1786,57 @@ input, button, textarea, select {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+}
+
+/* More Menu Dropdown */
+.more-menu {
+  position: fixed;
+  top: 56px;
+  right: 12px;
+  background: white;
+  border-radius: 14px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+  padding: 8px;
+  z-index: 2000;
+  min-width: 190px;
+  display: none;
+}
+
+.more-menu.open {
+  display: block;
+}
+
+.more-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: #1a1a1a;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.more-menu-item:hover,
+.more-menu-item:active {
+  background: #f5f5f5;
+}
+
+#moreMenuOverlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 1999;
+}
+
+#moreMenuOverlay.open {
+  display: block;
 }
 
 /* Mode Switcher */
@@ -1802,10 +1851,10 @@ input, button, textarea, select {
 .mode-btn {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   border: none;
   border-radius: 22px;
-  padding: 5px 10px;
+  padding: 5px 8px;
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
@@ -1816,6 +1865,8 @@ input, button, textarea, select {
   -webkit-tap-highlight-color: transparent;
   position: relative;
   overflow: hidden;
+  min-width: 32px;
+  justify-content: center;
 }
 
 .mode-btn::after {
@@ -1836,8 +1887,13 @@ input, button, textarea, select {
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
 }
 
-.mode-btn-icon { font-size: 13px; line-height: 1; }
-.mode-btn-label { font-size: 11px; }
+.mode-btn-icon { font-size: 14px; line-height: 1; }
+.mode-btn-label { display: none; font-size: 11px; }
+
+@media (min-width: 420px) {
+  .mode-btn-label { display: inline; }
+  .mode-btn { padding: 5px 10px; }
+}
 
 /* Ghost Icons */
 .header-ghost-icons {
@@ -1880,16 +1936,10 @@ input, button, textarea, select {
 }
 
 /* Responsive */
-@media (max-width: 380px) {
-  .mode-btn-label { display: none; }
-  .mode-btn { padding: 5px 8px; }
-  .header-unit-title { max-width: 110px; font-size: 13px; }
-  .header-logo { font-size: 14px; }
-}
-
 @media (max-width: 320px) {
-  .app-header { padding: 8px 12px; }
+  .app-header { padding: 8px 8px; }
   .header-unit-subtitle { display: none; }
+  .header-unit-title { max-width: 60px; }
 }
 
 @keyframes notifFadeIn {
