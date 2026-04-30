@@ -5,8 +5,7 @@ export default async function handler(req, res) {
 
   console.log('Image received:', {
     hasImageBase64: !!req.body.imageBase64,
-    hasImage: !!req.body.image,
-    imageLength: (req.body.imageBase64 ?? req.body.image)?.length,
+    imageLength: req.body.imageBase64?.length,
     unitId: req.body.unitId,
     userId: !!req.body.userId,
     bodyKeys: Object.keys(req.body),

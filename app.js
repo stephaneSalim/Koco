@@ -2895,7 +2895,7 @@ function initPhotoInput() {
         const resp = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ imageBase64: base64, unitId: targetUnitId })
+          body: JSON.stringify({ imageBase64: base64, unitId: targetUnitId, userId: window.kocoUserId })
         });
         if (!resp.ok) throw new Error('analyze-image failed');
         const ctx = await resp.json();
