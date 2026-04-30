@@ -1741,6 +1741,16 @@ input, button, textarea, select {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+  transition: background 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.header-unit:hover,
+.header-unit:active {
+  background: rgba(102,126,234,0.08);
 }
 
 .header-unit-title {

@@ -1252,6 +1252,18 @@ async function buildUnitSelectorList() {
 function openUnitSelector() {
   buildUnitSelectorList();
   elements.unitSelectorModal.classList.remove('hidden');
+
+  const lastUnit = localStorage.getItem('koco_last_unit');
+  if (lastUnit) {
+    setTimeout(() => {
+      const el = document.querySelector(`[data-unit-id="${lastUnit}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.style.background = 'rgba(102,126,234,0.1)';
+        setTimeout(() => { el.style.background = ''; }, 1500);
+      }
+    }, 200);
+  }
 }
 
 function closeUnitSelector() {
@@ -1261,6 +1273,7 @@ function closeUnitSelector() {
 function selectUnit(unitId, unitObj) {
   STATE.unitId = unitId;
   STATE.activeUnit = unitObj || null;
+  localStorage.setItem('koco_last_unit', unitId);
   setTimeout(closeUnitSelector, 300);
 
   conversationManager.clear();
