@@ -84,8 +84,27 @@ SORTIE : JSON pur, sans backticks, sans texte explicatif.
   console.log('Claude Vision status:', response.status);
   if (data.error) console.error('Claude Vision error:', JSON.stringify(data.error));
 
+  console.log('Claude response structure:', JSON.stringify({
+    type: data.type,
+    content_length: data.content?.length,
+    first_content_type: data.content?.[0]?.type,
+    text_preview: data.content?.[0]?.text?.slice(0, 100),
+  }));
+
+  const rawText = data.content?.[0]?.text;
+  console.log('Raw text defined:', !!rawText);
+  console.log('Raw text preview:', rawText?.slice(0, 200));
+
+  if (!rawText) {
+    return res.status(422).json({
+      error: 'Claude returned no text',
+      response_type: data.type,
+      stop_reason: data.stop_reason,
+    });
+  }
+
   try {
-    const raw = data.content[0].text.trim();
+    const raw = rawText.trim();
     const json = raw.startsWith('{') ? raw : raw.match(/\{[\s\S]*\}/)?.[0];
     const extracted = JSON.parse(json);
     // Enforce unitId from request, never trust model output
