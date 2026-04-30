@@ -367,13 +367,40 @@ function updateHeader() {
   updateHeaderBadge(STATE.activeUnit);
 }
 
+function cleanResponseForDisplay(text) {
+  return text
+    .replace(/\[CORRECTION\][\s\S]*?\[\/CORRECTION\]/g, '')
+    .replace(/---+/g, '')
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function renderMessage(text) {
+  const cleaned = cleanResponseForDisplay(text);
+  if (typeof marked !== 'undefined') {
+    return { html: marked.parse(cleaned) };
+  }
+  return { plain: cleaned };
+}
+
 function addMessage(role, text) {
   const wrapper = document.createElement('div');
   wrapper.classList.add('message', `message--${role}`);
 
   const bubble = document.createElement('div');
   bubble.classList.add('message__bubble');
-  bubble.textContent = text;
+
+  if (role === 'assistant') {
+    const rendered = renderMessage(text);
+    if (rendered.html) {
+      bubble.innerHTML = rendered.html;
+    } else {
+      bubble.textContent = rendered.plain;
+    }
+  } else {
+    bubble.textContent = text;
+  }
 
   const meta = document.createElement('div');
   meta.classList.add('message__meta');
@@ -3565,10 +3592,11 @@ function initApp() {
         updateContextGuard(STATE.unitId);
       }
 
-      if (!STATE.conversationStarted && getApiKey()) {
-        STATE.conversationStarted = true;
-        await startConversation();
-      }
+      // Auto-open message disabled — KoCo attend que l'utilisateur parle en premier
+      // if (!STATE.conversationStarted && getApiKey()) {
+      //   STATE.conversationStarted = true;
+      //   await startConversation();
+      // }
     });
   }
 
