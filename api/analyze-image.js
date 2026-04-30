@@ -28,6 +28,40 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "unitId manquant — requis pour l'extraction" });
   }
 
+  const { createClient } = await import('@supabase/supabase-js');
+  const supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_ANON_KEY
+  );
+
+  // Pre-check : données existantes suffisantes ?
+  const { data: existing } = await supabase
+    .from('lesson_content')
+    .select('vocabulary, structures, ocr_confidence, updated_at')
+    .eq('unit_id', unitId)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (existing &&
+      (existing.vocabulary?.length || 0) >= 10 &&
+      (existing.ocr_confidence || 0) >= 0.7) {
+    console.log('Short-circuit: unit already indexed:', unitId,
+      '| vocab:', existing.vocabulary?.length,
+      '| confidence:', existing.ocr_confidence
+    );
+    return res.json({
+      alreadyExists: true,
+      unit_id: unitId,
+      stats: {
+        vocab: existing.vocabulary?.length,
+        structures: existing.structures?.length,
+        confidence: existing.ocr_confidence,
+        last_updated: existing.updated_at,
+      },
+    });
+  }
+
+  console.log('New unit or insufficient data — proceeding with Claude Vision');
   console.log('ETL start | unitId:', unitId, '| image length:', imageData?.length);
 
   const ETL_PROMPT = `Tu es un agent ETL de haute précision.
@@ -107,8 +141,32 @@ SORTIE : JSON pur, sans backticks, sans texte explicatif.
     const raw = rawText.trim();
     const json = raw.startsWith('{') ? raw : raw.match(/\{[\s\S]*\}/)?.[0];
     const extracted = JSON.parse(json);
-    // Enforce unitId from request, never trust model output
     extracted.unit_id = unitId;
+
+    const { error: saveError } = await supabase
+      .from('lesson_content')
+      .upsert({
+        unit_id: unitId,
+        user_id: userId,
+        theme: extracted.theme,
+        category: extracted.category,
+        vocabulary: extracted.vocabulary || [],
+        structures: extracted.structures || [],
+        context_snippets: extracted.context_snippets || [],
+        ocr_confidence: extracted.ocr_confidence,
+        domain_tags: extracted.domain_tags || [],
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'unit_id,user_id', ignoreDuplicates: false });
+
+    if (saveError) {
+      console.error('Save error:', JSON.stringify(saveError));
+    } else {
+      console.log('Saved:', unitId,
+        '| vocab:', extracted.vocabulary?.length,
+        '| structures:', extracted.structures?.length
+      );
+    }
+
     res.json(extracted);
   } catch (e) {
     console.error('ETL parse error:', e.message);

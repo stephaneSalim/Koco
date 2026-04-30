@@ -2931,6 +2931,24 @@ function initPhotoInput() {
         if (!resp.ok) throw new Error('analyze-image failed');
         const ctx = await resp.json();
 
+        // Short-circuit : contenu déjà indexé côté serveur
+        if (ctx.alreadyExists) {
+          showToast(
+            `✅ ${ctx.unit_id} déjà indexé ` +
+            `(${ctx.stats.vocab} mots · ` +
+            `confiance ${Math.round(ctx.stats.confidence * 100)}%)`
+          );
+          if (window.getLessonContent) {
+            const existing = await window.getLessonContent(targetUnitId);
+            if (existing) {
+              STATE.pageContext = existing;
+              console.log('Loaded existing content:', targetUnitId);
+            }
+          }
+          if (indicator) indicator.textContent = `✅ Déjà indexé — ${ctx.stats.vocab} mots`;
+          return;
+        }
+
         // OCR confidence check (0.0–1.0 scale)
         const confidence = ctx.ocr_confidence ?? 0.5;
         if (confidence < 0.5) {
