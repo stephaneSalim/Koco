@@ -3,27 +3,32 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  const imageData = req.body.image || req.body.imageBase64;
+  const { unitId } = req.body;
+  const userId = req.body.userId || req.body.user_id;
+
   console.log('Image received:', {
-    hasImageBase64: !!req.body.imageBase64,
-    imageLength: req.body.imageBase64?.length,
-    unitId: req.body.unitId,
-    userId: !!req.body.userId,
+    hasImage: !!imageData,
+    imageLength: imageData?.length,
+    unitId,
+    userId: !!userId,
     bodyKeys: Object.keys(req.body),
   });
 
-  const { imageBase64, unitId } = req.body;
-
-  if (!imageBase64) {
+  if (!imageData) {
     return res.status(400).json({
-      error: 'imageBase64 required',
-      received: Object.keys(req.body),
+      error: 'image required',
+      received_keys: Object.keys(req.body),
     });
+  }
+  if (!userId) {
+    return res.status(400).json({ error: 'userId required' });
   }
   if (!unitId) {
     return res.status(400).json({ error: "unitId manquant — requis pour l'extraction" });
   }
 
-  console.log('ETL start | unitId:', unitId, '| image length:', imageBase64?.length);
+  console.log('ETL start | unitId:', unitId, '| image length:', imageData?.length);
 
   const ETL_PROMPT = `Tu es un agent ETL de haute précision.
 Extrais le contenu de cette image de cours de coréen.
@@ -67,7 +72,7 @@ SORTIE : JSON pur, sans backticks, sans texte explicatif.
         content: [
           {
             type: 'image',
-            source: { type: 'base64', media_type: 'image/jpeg', data: imageBase64 }
+            source: { type: 'base64', media_type: 'image/jpeg', data: imageData }
           },
           { type: 'text', text: ETL_PROMPT }
         ]

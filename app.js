@@ -2865,6 +2865,39 @@ async function mergeOcrContent(unitId, newCtx) {
   };
 }
 
+async function compressImage(file, maxWidth = 1200, quality = 0.7) {
+  return new Promise((resolve) => {
+    const canvas = document.createElement('canvas');
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+
+    img.onload = () => {
+      let { width, height } = img;
+      if (width > maxWidth) {
+        height = Math.round(height * maxWidth / width);
+        width = maxWidth;
+      }
+      canvas.width = width;
+      canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+
+      canvas.toBlob(blob => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64 = reader.result.split(',')[1];
+          console.log('Image compressed:', Math.round(base64.length / 1024), 'KB',
+            '(was', Math.round(file.size / 1024), 'KB)');
+          URL.revokeObjectURL(url);
+          resolve(base64);
+        };
+        reader.readAsDataURL(blob);
+      }, 'image/jpeg', quality);
+    };
+
+    img.src = url;
+  });
+}
+
 function initPhotoInput() {
   elements.photoInputBtn.addEventListener('click', () => {
     _pendingPhotoUnitId = null;
@@ -2882,21 +2915,19 @@ function initPhotoInput() {
     const fromModal = !!_pendingPhotoUnitId;
     const indicator = fromModal ? null : addSystemMessage('📸 Analyse en cours...');
 
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const base64 = reader.result.split(',')[1];
+    try {
+      const base64 = await compressImage(file);
       const unit = targetUnitId === STATE.unitId ? STATE.activeUnit : null;
       const snuUnit = unit ? `${unit.level}_${unit.unit_number}-${unit.lesson_number}` : 'SNU 5A';
       const endpoint = (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost')
         ? 'http://localhost:3000/api/analyze-image'
         : '/api/analyze-image';
 
-      try {
-        const resp = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ imageBase64: base64, unitId: targetUnitId, userId: window.kocoUserId })
-        });
+      const resp = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: base64, unitId: targetUnitId, userId: window.kocoUserId })
+      });
         if (!resp.ok) throw new Error('analyze-image failed');
         const ctx = await resp.json();
 
@@ -2958,13 +2989,11 @@ function initPhotoInput() {
         } else {
           showAlert(lowQuality ? 'error' : 'success', msg);
         }
-      } catch (err) {
-        console.error('Photo analysis error:', err);
-        if (indicator) indicator.textContent = '❌ Analyse échouée. Réessayez.';
-        else showAlert('error', '❌ Analyse échouée.');
-      }
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.error('Photo analysis error:', err);
+      if (indicator) indicator.textContent = '❌ Analyse échouée. Réessayez.';
+      else showAlert('error', '❌ Analyse échouée.');
+    }
   });
 }
 
