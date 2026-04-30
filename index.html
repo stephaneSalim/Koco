@@ -10,51 +10,42 @@
   <div id="app">
     <header class="app-header" id="appHeader">
 
-      <!-- ZONE 1 : Brand + Unit (gauche) -->
-      <div class="header-brand">
-        <span class="header-logo">KoCo</span>
-        <button class="header-unit-badge" id="unitSelectorBtn" type="button">
-          <span class="header-unit-title" id="headerUnitTitle">음식과 영양</span>
-          <span class="header-unit-subtitle" id="headerUnitSubtitle">5A · Nutrition</span>
-        </button>
-      </div>
-
-      <!-- ZONE 2 : Mode Switcher (centre) -->
-      <div class="header-center">
-        <div class="mode-switcher" id="modeSwitcher">
-          <button class="mode-btn active" id="btnSpeak" onclick="setMode('speak')" aria-label="Mode Tutorat">
-            <span class="mode-btn-icon">💬</span>
-            <span class="mode-btn-label">Tutorat</span>
-          </button>
-          <button class="mode-btn" id="btnMission" onclick="setMode('mission')" aria-label="Mode Examen">
-            <span class="mode-btn-icon">🎯</span>
-            <span class="mode-btn-label">Examen</span>
-          </button>
-          <button class="mode-btn" id="btnDailyLife" onclick="setMode('daily_life')" aria-label="Mode Vie Quotidienne">
-            <span class="mode-btn-icon">🌍</span>
-            <span class="mode-btn-label">Terrain</span>
-          </button>
+      <!-- NIVEAU 1 : Brand + Unité + Controls -->
+      <div class="header-main">
+        <div class="header-left">
+          <span class="header-logo">KoCo</span>
+          <div class="header-unit">
+            <span class="header-unit-title" id="headerUnitTitle">음식과 영양</span>
+            <span class="header-unit-sub" id="headerUnitSubtitle">5A · Food &amp; Nutrition</span>
+          </div>
+        </div>
+        <div class="header-right">
+          <button class="ghost-btn" id="ttsToggle" title="Volume">🔊</button>
+          <button class="ghost-btn" id="moreBtn" title="Plus">···</button>
+          <button class="ghost-btn ghost-btn-stop" id="endSessionBtn" onclick="endSession()" title="Stop">⏹</button>
         </div>
       </div>
 
-      <!-- ZONE 3 : Controls (droite) -->
-      <div class="header-controls">
-        <div class="header-ghost-icons">
-          <button class="ghost-icon" id="ttsToggle" aria-label="Volume">🔊</button>
-          <button class="ghost-icon" id="moreBtn" type="button" aria-label="Plus d'options">···</button>
-          <button class="ghost-icon ghost-icon-stop" id="endSessionBtn" aria-label="Stop session" type="button">⏹</button>
-        </div>
+      <!-- NIVEAU 2 : Mode switcher -->
+      <div class="header-modes">
+        <button class="mode-pill active" id="btnSpeak" onclick="setMode('speak')">💬 <span>Tutorat</span></button>
+        <button class="mode-pill" id="btnMission" onclick="setMode('mission')">🎯 <span>Examen</span></button>
+        <button class="mode-pill" id="btnDailyLife" onclick="setMode('daily_life')">🌍 <span>Terrain</span></button>
       </div>
 
+      <!-- Warning contexte -->
+      <div id="contextWarning-header" style="display:none"></div>
     </header>
 
-    <!-- More Menu Dropdown -->
-    <div id="moreMenu" class="more-menu">
-      <button class="more-menu-item" onclick="generateSNUMission(); closeMoreMenu()">🎓 Mission SNU</button>
-      <button class="more-menu-item" id="stagingMenuItem" onclick="openStagingUI(); closeMoreMenu()" style="display:none">📋 Staging</button>
-      <button class="more-menu-item" onclick="fetchKnowledgeSnapshot(); closeMoreMenu()">🧠 Knowledge Snapshot</button>
+    <!-- Dropdown menu -->
+    <div class="more-menu" id="moreMenu">
+      <button class="more-item" onclick="generateSNUMission();closeMoreMenu()">🎓 Mission SNU</button>
+      <button class="more-item" id="stagingMenuItem" onclick="openStagingUI();closeMoreMenu()" style="display:none">📋 <span id="stagingLabel">Staging</span></button>
+      <button class="more-item" onclick="fetchKnowledgeSnapshot();closeMoreMenu()">🧠 Knowledge Snapshot</button>
+      <button class="more-item" onclick="openUnitSelector();closeMoreMenu()">📚 Changer d'unité</button>
+      <div class="more-divider"></div>
+      <button class="more-item more-item-danger" onclick="endSession();closeMoreMenu()">⏹ Terminer la séance</button>
     </div>
-    <div id="moreMenuOverlay" onclick="closeMoreMenu()"></div>
 
     <div id="sessionSummaryModal" class="summary-modal hidden">
       <div class="summary-overlay"></div>

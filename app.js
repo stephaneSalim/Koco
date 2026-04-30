@@ -2530,6 +2530,8 @@ function showSessionReport(corrections, goldenSentence) {
   resetSessionState();
 }
 
+window.endSession = openSessionSummary;
+
 function startNewSession() {
   closeSessionSummary();
   resetSession();
@@ -3101,20 +3103,23 @@ async function startConversation() {
 
 function toggleMoreMenu() {
   const menu = document.getElementById('moreMenu');
-  const overlay = document.getElementById('moreMenuOverlay');
-  const isOpen = menu?.classList.contains('open');
+  if (!menu) return;
+  const isOpen = menu.classList.contains('open');
   if (isOpen) {
-    menu?.classList.remove('open');
-    overlay?.classList.remove('open');
+    closeMoreMenu();
   } else {
-    menu?.classList.add('open');
-    overlay?.classList.add('open');
+    menu.classList.add('open');
+    const overlay = document.createElement('div');
+    overlay.className = 'more-overlay';
+    overlay.id = 'moreOverlay';
+    overlay.onclick = closeMoreMenu;
+    document.body.appendChild(overlay);
   }
 }
 
 function closeMoreMenu() {
   document.getElementById('moreMenu')?.classList.remove('open');
-  document.getElementById('moreMenuOverlay')?.classList.remove('open');
+  document.getElementById('moreOverlay')?.remove();
 }
 
 window.closeMoreMenu = closeMoreMenu;
@@ -3316,7 +3321,7 @@ function initApp() {
   // Register DOM events
   elements.nextQuestionButton.addEventListener('click', () => nextQuestion());
 
-  elements.unitSelectorBtn.addEventListener('click', openUnitSelector);
+  elements.unitSelectorBtn?.addEventListener('click', openUnitSelector);
   elements.unitSelectorModal.querySelector('.unit-selector-overlay').addEventListener('click', closeUnitSelector);
 
   elements.endSessionBtn.addEventListener('click', openSessionSummary);

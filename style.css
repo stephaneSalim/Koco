@@ -1701,29 +1701,32 @@ input, button, textarea, select {
   font-size: 10px;
 }
 
-/* ── Glassmorphic App Header ──────────────────── */
+/* ── App Header — 2-level mobile-first ──────────── */
 .app-header {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  padding: 10px 12px;
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(15px);
-  -webkit-backdrop-filter: blur(15px);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
   position: sticky;
   top: 0;
   z-index: 1000;
-  min-height: 52px;
+  background: rgba(255,255,255,0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+}
+
+/* Niveau 1 */
+.header-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px 6px;
   gap: 8px;
 }
 
-/* Zone 1 : Brand + Unit */
-.header-brand {
+.header-left {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
   min-width: 0;
+  flex: 1;
 }
 
 .header-logo {
@@ -1731,180 +1734,46 @@ input, button, textarea, select {
   font-weight: 800;
   color: #667eea;
   letter-spacing: -0.5px;
-  line-height: 1;
+  flex-shrink: 0;
 }
 
-/* Zone 2 : Mode Switcher centre */
-.header-center {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-/* Zone 1 unit badge — compact, inline */
-.header-unit-badge {
+.header-unit {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
   min-width: 0;
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 2px 4px;
-  border-radius: 8px;
-  -webkit-tap-highlight-color: transparent;
-  transition: background 0.15s ease;
-}
-
-.header-unit-badge:active {
-  background: rgba(0, 0, 0, 0.06);
 }
 
 .header-unit-title {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   color: #1a1a1a;
-  line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 72px;
-  transition: opacity 0.2s ease;
+  max-width: 140px;
+  line-height: 1.2;
 }
 
-.header-unit-subtitle {
+.header-unit-sub {
   font-size: 10px;
-  font-weight: 500;
   color: #8696A0;
-  line-height: 1;
   white-space: nowrap;
-  transition: opacity 0.2s ease;
-}
-
-/* Zone 3 : Controls */
-.header-controls {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-}
-
-/* More Menu Dropdown */
-.more-menu {
-  position: fixed;
-  top: 56px;
-  right: 12px;
-  background: white;
-  border-radius: 14px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.15);
-  padding: 8px;
-  z-index: 2000;
-  min-width: 190px;
-  display: none;
-}
-
-.more-menu.open {
-  display: block;
-}
-
-.more-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  color: #1a1a1a;
-  border: none;
-  background: transparent;
-  width: 100%;
-  text-align: left;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.more-menu-item:hover,
-.more-menu-item:active {
-  background: #f5f5f5;
-}
-
-#moreMenuOverlay {
-  display: none;
-  position: fixed;
-  inset: 0;
-  z-index: 1999;
-}
-
-#moreMenuOverlay.open {
-  display: block;
-}
-
-/* Mode Switcher */
-.mode-switcher {
-  background: #f1f1f1;
-  border-radius: 25px;
-  padding: 3px;
-  display: flex;
-  gap: 2px;
-}
-
-.mode-btn {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  border: none;
-  border-radius: 22px;
-  padding: 5px 8px;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  background: transparent;
-  color: #8696A0;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-  -webkit-tap-highlight-color: transparent;
-  position: relative;
   overflow: hidden;
-  min-width: 32px;
-  justify-content: center;
+  text-overflow: ellipsis;
+  max-width: 140px;
 }
 
-.mode-btn::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 122, 255, 0.1);
-  border-radius: 22px;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-.mode-btn:active::after { opacity: 1; }
-
-.mode-btn.active {
-  background: white;
-  color: #007AFF;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
-}
-
-.mode-btn-icon { font-size: 14px; line-height: 1; }
-.mode-btn-label { display: none; font-size: 11px; }
-
-@media (min-width: 420px) {
-  .mode-btn-label { display: inline; }
-  .mode-btn { padding: 5px 10px; }
-}
-
-/* Ghost Icons */
-.header-ghost-icons {
+.header-right {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
+  flex-shrink: 0;
 }
 
-.ghost-icon {
-  width: 32px;
-  height: 32px;
+/* Ghost buttons */
+.ghost-btn {
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   border: none;
   background: transparent;
@@ -1913,34 +1782,136 @@ input, button, textarea, select {
   display: flex;
   align-items: center;
   justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s;
+}
+
+.ghost-btn:active { background: rgba(0,0,0,0.06); }
+.ghost-btn-stop { color: #e53935; font-size: 14px; }
+.ghost-btn.muted { opacity: 0.4; }
+
+/* Niveau 2 : Mode pills */
+.header-modes {
+  display: flex;
+  gap: 4px;
+  padding: 0 14px 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.header-modes::-webkit-scrollbar { display: none; }
+
+.mode-pill {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  border: none;
+  background: #f1f1f1;
   color: #8696A0;
-  transition: all 0.2s ease;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.mode-pill.active {
+  background: #667eea;
+  color: white;
+  box-shadow: 0 2px 8px rgba(102,126,234,0.35);
+}
+
+.mode-pill span { font-size: 11px; }
+
+/* Warning contextuel */
+#contextWarning-header {
+  padding: 6px 14px;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  border-bottom: 1px solid rgba(229,57,53,0.15);
+}
+
+/* More Menu Dropdown */
+.more-menu {
+  position: fixed;
+  top: 96px;
+  right: 12px;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15), 0 2px 8px rgba(0,0,0,0.08);
+  padding: 8px;
+  z-index: 2000;
+  min-width: 200px;
+  display: none;
+  animation: menuFadeIn 0.15s ease;
+}
+
+.more-menu.open { display: block; }
+
+@keyframes menuFadeIn {
+  from { opacity: 0; transform: translateY(-8px) scale(0.95); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.more-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #1a1a1a;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
   -webkit-tap-highlight-color: transparent;
 }
 
-.ghost-icon:hover { background: rgba(0,0,0,0.06); }
-.ghost-icon:active { background: rgba(0,0,0,0.1); transform: scale(0.92); }
-.ghost-icon.muted { opacity: 0.4; }
+.more-item:hover,
+.more-item:active { background: #f5f5f5; }
 
-.ghost-icon-stop { color: #e53935; }
-.ghost-icon-stop:hover { background: rgba(229, 57, 53, 0.08); }
+.more-item-danger { color: #e53935; }
 
-/* Badge update animation */
-@keyframes badgeUpdate {
-  0%   { opacity: 0.5; transform: translateY(-4px); }
-  100% { opacity: 1; transform: translateY(0); }
+.more-divider {
+  height: 1px;
+  background: #f0f0f0;
+  margin: 6px 0;
 }
 
-.header-unit-badge.updating {
-  animation: badgeUpdate 0.3s ease forwards;
+.more-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1999;
+  background: transparent;
 }
 
-/* Responsive */
-@media (max-width: 320px) {
-  .app-header { padding: 8px 8px; }
-  .header-unit-subtitle { display: none; }
-  .header-unit-title { max-width: 60px; }
+/* Mobile très petit */
+@media (max-width: 360px) {
+  .mode-pill span { display: none; }
+  .mode-pill { padding: 6px 10px; }
+  .header-unit-title { max-width: 100px; }
 }
+
+/* Desktop */
+@media (min-width: 600px) {
+  .header-unit-title { max-width: 220px; }
+  .header-unit-sub { max-width: 220px; }
+  .header-main { padding: 12px 20px 8px; }
+  .header-modes { padding: 0 20px 12px; }
+  .ghost-btn { width: 36px; height: 36px; }
+}
+
 
 @keyframes notifFadeIn {
   from { opacity: 0; transform: translateX(-50%) translateY(-8px); }
