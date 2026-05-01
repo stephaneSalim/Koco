@@ -39,7 +39,28 @@ export default async function handler(req, res) {
   const selectedModel = selectModel(mode, userMessageLength, hasRecurringErrors);
   const max_tokens = getMaxTokens(mode);
   const windowedMessages = (messages || []).slice(-8);
+
+  // DEBUG: vérifier que system est reçu correctement
+  console.log('[Cache debug] system received:', {
+    type: typeof system,
+    length: system?.length,
+    defined: !!system,
+    preview: system?.slice(0, 80),
+  });
+
   const systemParts = buildCachedSystem(system);
+
+  // DEBUG: structure envoyée à Anthropic
+  console.log('System type:', typeof systemParts);
+  console.log('System is array:', Array.isArray(systemParts));
+  if (Array.isArray(systemParts)) {
+    systemParts.forEach((part, i) => {
+      console.log(`Part ${i}:`, {
+        length: part.text?.length,
+        has_cache: !!part.cache_control,
+      });
+    });
+  }
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
