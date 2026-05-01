@@ -186,26 +186,49 @@ async function loadUserStats() {
 window.loadUserStats = loadUserStats;
 
 async function saveLessonContent(unitId, content) {
+  const { data: existing } = await window.supabaseClient
+    .from('lesson_content')
+    .select('vocabulary, structures, context_snippets, theme, category, ocr_confidence')
+    .eq('unit_id', unitId)
+    .eq('user_id', window.kocoUserId)
+    .maybeSingle();
+
+  const mergedVocab = [...new Set([
+    ...(existing?.vocabulary || []),
+    ...(content.vocabulary || []),
+  ])];
+  const mergedStructures = [...new Set([
+    ...(existing?.structures || []),
+    ...(content.structures || []),
+  ])];
+  const mergedSnippets = [...new Set([
+    ...(existing?.context_snippets || []),
+    ...(content.context_snippets || []),
+  ])];
+
   const { error } = await window.supabaseClient
     .from('lesson_content')
     .upsert({
       unit_id: unitId,
       user_id: window.kocoUserId,
-      vocabulary: content.vocabulary || [],
-      structures: content.structures || [],
-      theme: content.theme || '',
+      vocabulary: mergedVocab,
+      structures: mergedStructures,
+      context_snippets: mergedSnippets,
+      theme: content.theme || existing?.theme || '',
       level: content.level || '',
       conversation_starters: content.conversation_starters || [],
-      context_snippets: content.context_snippets || [],
-      category: content.category || '',
-      ocr_confidence: content.ocr_confidence ?? null,
+      category: content.category || existing?.category || '',
+      ocr_confidence: content.ocr_confidence ?? existing?.ocr_confidence ?? null,
       updated_at: new Date().toISOString()
     }, { onConflict: 'unit_id,user_id', ignoreDuplicates: false });
 
   if (error) {
     console.error('saveLessonContent error:', JSON.stringify(error));
   } else {
-    console.log('Content saved for unit:', unitId);
+    console.log('Cumulative save:', unitId,
+      '| vocab:', mergedVocab.length,
+      '| structures:', mergedStructures.length
+    );
   }
 }
 

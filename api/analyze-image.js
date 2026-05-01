@@ -34,23 +34,21 @@ export default async function handler(req, res) {
     process.env.SUPABASE_ANON_KEY
   );
 
-  // Pre-check : données existantes suffisantes ?
+  // Pre-check : seuil de saturation uniquement (accumulation active en dessous)
   const { data: existing } = await supabase
     .from('lesson_content')
-    .select('vocabulary, structures, ocr_confidence, updated_at')
+    .select('vocabulary, structures, context_snippets, domain_tags, ocr_confidence, updated_at')
     .eq('unit_id', unitId)
     .eq('user_id', userId)
     .maybeSingle();
 
-  if (existing &&
-      (existing.vocabulary?.length || 0) >= 10 &&
-      (existing.ocr_confidence || 0) >= 0.7) {
-    console.log('Short-circuit: unit already indexed:', unitId,
-      '| vocab:', existing.vocabulary?.length,
-      '| confidence:', existing.ocr_confidence
+  if (existing && (existing.vocabulary?.length || 0) >= 300) {
+    console.log('Unit saturated (300+ words):', unitId,
+      '| vocab:', existing.vocabulary?.length
     );
     return res.json({
       alreadyExists: true,
+      saturated: true,
       unit_id: unitId,
       stats: {
         vocab: existing.vocabulary?.length,
@@ -143,6 +141,31 @@ SORTIE : JSON pur, sans backticks, sans texte explicatif.
     const extracted = JSON.parse(json);
     extracted.unit_id = unitId;
 
+    const mergedVocab = [...new Set([
+      ...(existing?.vocabulary || []),
+      ...(extracted.vocabulary || []),
+    ])];
+    const mergedStructures = [...new Set([
+      ...(existing?.structures || []),
+      ...(extracted.structures || []),
+    ])];
+    const mergedSnippets = [...new Set([
+      ...(existing?.context_snippets || []),
+      ...(extracted.context_snippets || []),
+    ])];
+    const mergedTags = [...new Set([
+      ...(existing?.domain_tags || []),
+      ...(extracted.domain_tags || []),
+    ])];
+
+    console.log('Cumulative merge:', {
+      vocab_before: existing?.vocabulary?.length || 0,
+      vocab_after: mergedVocab.length,
+      structures_before: existing?.structures?.length || 0,
+      structures_after: mergedStructures.length,
+      new_additions: mergedVocab.length - (existing?.vocabulary?.length || 0),
+    });
+
     const { error: saveError } = await supabase
       .from('lesson_content')
       .upsert({
@@ -150,11 +173,11 @@ SORTIE : JSON pur, sans backticks, sans texte explicatif.
         user_id: userId,
         theme: extracted.theme,
         category: extracted.category,
-        vocabulary: extracted.vocabulary || [],
-        structures: extracted.structures || [],
-        context_snippets: extracted.context_snippets || [],
+        vocabulary: mergedVocab,
+        structures: mergedStructures,
+        context_snippets: mergedSnippets,
+        domain_tags: mergedTags,
         ocr_confidence: extracted.ocr_confidence,
-        domain_tags: extracted.domain_tags || [],
         updated_at: new Date().toISOString(),
       }, { onConflict: 'unit_id,user_id', ignoreDuplicates: false });
 
@@ -162,8 +185,8 @@ SORTIE : JSON pur, sans backticks, sans texte explicatif.
       console.error('Save error:', JSON.stringify(saveError));
     } else {
       console.log('Saved:', unitId,
-        '| vocab:', extracted.vocabulary?.length,
-        '| structures:', extracted.structures?.length
+        '| vocab:', mergedVocab.length,
+        '| structures:', mergedStructures.length
       );
     }
 
