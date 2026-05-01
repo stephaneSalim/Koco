@@ -88,7 +88,9 @@ const STATE = {
   needsFrenchExplanation: false,
   knowledgeSnapshot: null,
   recurringErrors: [],
-  conversationStarted: false
+  conversationStarted: false,
+  sessionTokens: 0,
+  sessionCacheSaved: 0,
 };
 
 // Normalize a Supabase snu_units row to a stable unit object used throughout the app
@@ -1009,6 +1011,27 @@ async function processUserInput(text) {
         showAlert('error', `API 요청 실패: ${result.details || result.error}`);
       }
       return;
+    }
+
+    if (result._tokens) {
+      const { input, output, cache_read, cache_write } = result._tokens;
+      const saved = cache_read || 0;
+      const savingPct = input > 0 ? Math.round((saved / (input + saved)) * 100) : 0;
+      console.log(`💰 ${result._model_used} | mode:${result._mode}`,
+        `\n   Input: ${input} tokens`,
+        `\n   Output: ${output} tokens`,
+        `\n   Cache read: ${saved} tokens (${savingPct}% saved)`,
+        `\n   Cache write: ${cache_write} tokens`
+      );
+      STATE.sessionTokens += (input || 0) + (output || 0);
+      STATE.sessionCacheSaved += saved;
+    }
+    const modelIndicator = document.getElementById('modelIndicator');
+    if (modelIndicator) {
+      const isHaiku = result._model_used?.includes('haiku');
+      modelIndicator.textContent = isHaiku ? '⚡' : '🎓';
+      modelIndicator.title = isHaiku ? 'Haiku (rapide)' : 'Sonnet (expert)';
+      modelIndicator.style.color = isHaiku ? '#00a884' : '#667eea';
     }
 
     STATE.messageCount += 1;

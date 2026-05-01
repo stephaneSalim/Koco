@@ -1106,26 +1106,24 @@ class ConversationManager {
  */
 async function callAnthropicAPI(userMessage, conversationManager, systemPrompt) {
   const apiKey = getApiKey();
-  
+
   if (!apiKey) {
-    return {
-      success: false,
-      response: null,
-      error: 'API_KEY_MISSING'
-    };
+    return { success: false, response: null, error: 'API_KEY_MISSING' };
   }
 
-  // Build message array for this call
-  const messages = [
-    ...conversationManager.getMessages(),
-    { role: 'user', content: userMessage }
-  ];
+  const allMessages = conversationManager.getMessages();
+  const messages = [...allMessages, { role: 'user', content: userMessage }];
+  console.log('Sliding window:', allMessages.length, '→', Math.min(messages.length, 8), 'messages (server)');
+
+  const mode = window.STATE?.mode || 'freeChat';
+  const recurringErrors = window.STATE?.recurringErrors || [];
 
   const requestPayload = {
-    model: API_CONFIG.MODEL,
-    max_tokens: 1024,
     system: systemPrompt,
-    messages: messages
+    messages: messages,
+    mode: mode,
+    userMessageLength: userMessage?.length || 0,
+    hasRecurringErrors: recurringErrors.length > 0,
   };
 
   try {
@@ -1134,62 +1132,41 @@ async function callAnthropicAPI(userMessage, conversationManager, systemPrompt) 
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
+        'anthropic-version': '2023-06-01',
       },
-      body: JSON.stringify(requestPayload)
+      body: JSON.stringify(requestPayload),
     });
 
     if (!response.ok) {
       const errorData = await response.json();
-      
-      // Handle specific error types
       if (response.status === 401) {
-        return {
-          success: false,
-          response: null,
-          error: 'INVALID_API_KEY',
-          details: 'API key is invalid or expired'
-        };
+        return { success: false, response: null, error: 'INVALID_API_KEY', details: 'API key is invalid or expired' };
       }
-      
       if (response.status === 429) {
-        return {
-          success: false,
-          response: null,
-          error: 'RATE_LIMITED',
-          details: 'Too many requests. Please wait a moment.'
-        };
+        return { success: false, response: null, error: 'RATE_LIMITED', details: 'Too many requests. Please wait a moment.' };
       }
-
-      return {
-        success: false,
-        response: null,
-        error: 'API_ERROR',
-        details: errorData.error?.message || 'Unknown API error'
-      };
+      return { success: false, response: null, error: 'API_ERROR', details: errorData.error?.message || 'Unknown API error' };
     }
 
     const data = await response.json();
     const assistantMessage = data.content[0].text;
 
-    // Update conversation history
     conversationManager.addUserMessage(userMessage);
     conversationManager.addAssistantMessage(assistantMessage);
 
     return {
       success: true,
       response: assistantMessage,
-      error: null
+      error: null,
+      _model_used: data._model_used,
+      _mode: data._mode,
+      _cached: data._cached,
+      _tokens: data._tokens,
     };
 
   } catch (error) {
     console.error('API call failed:', error);
-    return {
-      success: false,
-      response: null,
-      error: 'NETWORK_ERROR',
-      details: error.message
-    };
+    return { success: false, response: null, error: 'NETWORK_ERROR', details: error.message };
   }
 }
 
