@@ -156,7 +156,7 @@ const elements = {
   typingIndicator: document.querySelector('.typing-indicator'),
   nextQuestionButton: document.querySelector('.next-question-btn'),
   ttsToggleButton: document.querySelector('.tts-toggle'),
-  endSessionBtn: document.getElementById('endSessionBtn'),
+  endSessionBtn: document.getElementById('stopBtn'),
   sessionSummaryModal: document.getElementById('sessionSummaryModal'),
   statsScreen: document.getElementById('statsScreen'),
   mapScreen: document.getElementById('mapScreen'),
@@ -3576,29 +3576,6 @@ async function startConversation() {
 
 // ─── Staging UI ──────────────────────────────────────────────────────────────
 
-function toggleMoreMenu() {
-  const menu = document.getElementById('moreMenu');
-  if (!menu) return;
-  const isOpen = menu.classList.contains('open');
-  if (isOpen) {
-    closeMoreMenu();
-  } else {
-    menu.classList.add('open');
-    const overlay = document.createElement('div');
-    overlay.className = 'more-overlay';
-    overlay.id = 'moreOverlay';
-    overlay.onclick = closeMoreMenu;
-    document.body.appendChild(overlay);
-  }
-}
-
-function closeMoreMenu() {
-  document.getElementById('moreMenu')?.classList.remove('open');
-  document.getElementById('moreOverlay')?.remove();
-}
-
-window.closeMoreMenu = closeMoreMenu;
-
 async function checkStagingBadge() {
   try {
     const { count } = await window.supabaseClient
@@ -3607,10 +3584,10 @@ async function checkStagingBadge() {
       .eq('user_id', window.kocoUserId)
       .eq('status', 'pending');
 
-    const menuItem = document.getElementById('stagingMenuItem');
-    if (menuItem) {
-      menuItem.style.display = count > 0 ? 'flex' : 'none';
-      menuItem.title = `📋 ${count} élément${count > 1 ? 's' : ''} en attente`;
+    const pill = document.getElementById('stagingPill');
+    if (pill) {
+      pill.style.display = count > 0 ? 'flex' : 'none';
+      pill.title = `📋 ${count} élément${count > 1 ? 's' : ''} en attente`;
     }
   } catch (e) {
     console.warn('[KoCo] checkStagingBadge error:', e);
@@ -3823,9 +3800,6 @@ function initApp() {
   if (ttsGhost) ttsGhost.addEventListener('click', toggleTTS);
   updateTtsButton();
 
-  const moreBtn = document.getElementById('moreBtn');
-  if (moreBtn) moreBtn.addEventListener('click', toggleMoreMenu);
-
   initPushToTalk();
   initInputBar();
   initPhotoInput();
@@ -3860,7 +3834,7 @@ function initApp() {
   // Propose le GMS Drill si pas encore fait aujourd'hui
   const lastDrill = localStorage.getItem('koco_last_gms_drill');
   if (lastDrill !== new Date().toDateString()) {
-    setTimeout(() => showToast('🎯 GMS Drill du jour disponible → menu ···'), 3000);
+    setTimeout(() => showToast('🎯 GMS Drill du jour disponible — barre du haut'), 3000);
   }
   startSessionTimers();
 

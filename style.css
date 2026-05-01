@@ -1701,19 +1701,21 @@ input, button, textarea, select {
   font-size: 10px;
 }
 
-/* ── App Header — 2-level mobile-first ──────────── */
+/* ══════════════════════════════════════════
+   HEADER PRINCIPAL
+══════════════════════════════════════════ */
 .app-header {
   position: sticky;
   top: 0;
   z-index: 1000;
-  background: rgba(255,255,255,0.95);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(0,0,0,0.08);
+  background: rgba(255,255,255,0.96);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(0,0,0,0.07);
 }
 
-/* Niveau 1 */
-.header-main {
+/* ── Ligne 1 ─────────────────────────── */
+.header-row-1 {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1721,12 +1723,22 @@ input, button, textarea, select {
   gap: 8px;
 }
 
-.header-left {
+.header-brand-unit {
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-width: 0;
+  gap: 8px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 10px;
+  transition: background 0.15s;
   flex: 1;
+  min-width: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.header-brand-unit:hover,
+.header-brand-unit:active {
+  background: rgba(102,126,234,0.08);
 }
 
 .header-logo {
@@ -1737,20 +1749,11 @@ input, button, textarea, select {
   flex-shrink: 0;
 }
 
-.header-unit {
+.header-unit-info {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 8px;
-  transition: background 0.15s;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.header-unit:hover,
-.header-unit:active {
-  background: rgba(102,126,234,0.08);
+  flex: 1;
 }
 
 .header-unit-title {
@@ -1760,7 +1763,6 @@ input, button, textarea, select {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 140px;
   line-height: 1.2;
 }
 
@@ -1770,18 +1772,33 @@ input, button, textarea, select {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 140px;
+  line-height: 1.2;
 }
 
-.header-right {
+.header-chevron {
+  font-size: 18px;
+  color: #8696A0;
+  flex-shrink: 0;
+  font-weight: 300;
+}
+
+.header-actions {
   display: flex;
   align-items: center;
   gap: 2px;
   flex-shrink: 0;
 }
 
-/* Ghost buttons */
-.ghost-btn {
+.model-indicator {
+  font-size: 13px;
+  padding: 2px 6px;
+  border-radius: 8px;
+  background: #f0f3ff;
+  cursor: default;
+  transition: color 0.3s;
+}
+
+.action-btn {
   width: 34px;
   height: 34px;
   border-radius: 50%;
@@ -1796,130 +1813,110 @@ input, button, textarea, select {
   transition: background 0.15s;
 }
 
-.ghost-btn:active { background: rgba(0,0,0,0.06); }
-.ghost-btn-stop { color: #e53935; font-size: 14px; }
-.ghost-btn.muted { opacity: 0.4; }
+.action-btn:active { background: rgba(0,0,0,0.06); }
+.action-btn-stop { color: #e53935; font-size: 14px; }
+.action-btn.muted { opacity: 0.4; }
 
-/* Niveau 2 : Mode pills */
-.header-modes {
+/* ── Ligne 2 : Pills scrollables ─────── */
+.header-row-2 {
   display: flex;
-  gap: 4px;
+  align-items: center;
+  gap: 6px;
   padding: 0 14px 10px;
   overflow-x: auto;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x mandatory;
 }
 
-.header-modes::-webkit-scrollbar { display: none; }
+.header-row-2::-webkit-scrollbar { display: none; }
 
 .mode-pill {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 5px 12px;
+  padding: 6px 14px;
   border-radius: 20px;
   border: none;
-  background: #f1f1f1;
-  color: #8696A0;
+  background: #f1f3f5;
+  color: #6c757d;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
   flex-shrink: 0;
-  -webkit-tap-highlight-color: transparent;
-  transition: all 0.2s;
   font-family: inherit;
+  transition: all 0.2s;
+  scroll-snap-align: start;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .mode-pill.active {
   background: #667eea;
   color: white;
-  box-shadow: 0 2px 8px rgba(102,126,234,0.35);
+  box-shadow: 0 3px 10px rgba(102,126,234,0.35);
 }
 
-.mode-pill span { font-size: 11px; }
+.mode-pill:active { transform: scale(0.95); }
 
-/* Warning contextuel */
-#contextWarning-header {
-  padding: 6px 14px;
-  font-size: 11px;
-  font-weight: 600;
-  text-align: center;
-  border-bottom: 1px solid rgba(229,57,53,0.15);
+.pill-separator {
+  width: 1px;
+  height: 20px;
+  background: #e5e5e5;
+  flex-shrink: 0;
+  margin: 0 2px;
 }
 
-/* More Menu Dropdown */
-.more-menu {
-  position: fixed;
-  top: 96px;
-  right: 12px;
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.15), 0 2px 8px rgba(0,0,0,0.08);
-  padding: 8px;
-  z-index: 2000;
-  min-width: 200px;
-  display: none;
-  animation: menuFadeIn 0.15s ease;
-}
-
-.more-menu.open { display: block; }
-
-@keyframes menuFadeIn {
-  from { opacity: 0; transform: translateY(-8px) scale(0.95); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-.more-item {
+.feature-pill {
   display: flex;
   align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 10px 12px;
-  border: none;
-  background: transparent;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 500;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid #e5e5e5;
+  background: white;
   color: #1a1a1a;
+  font-size: 12px;
+  font-weight: 600;
   cursor: pointer;
-  text-align: left;
+  white-space: nowrap;
+  flex-shrink: 0;
   font-family: inherit;
+  transition: all 0.2s;
+  scroll-snap-align: start;
   -webkit-tap-highlight-color: transparent;
 }
 
-.more-item:hover,
-.more-item:active { background: #f5f5f5; }
-
-.more-item-danger { color: #e53935; }
-
-.more-divider {
-  height: 1px;
-  background: #f0f0f0;
-  margin: 6px 0;
+.feature-pill:hover {
+  border-color: #667eea;
+  color: #667eea;
+  background: #f0f3ff;
 }
 
-.more-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 1999;
-  background: transparent;
+.feature-pill:active {
+  transform: scale(0.95);
+  background: #f0f3ff;
 }
 
-/* Mobile très petit */
+#contextWarning-header {
+  padding: 5px 14px;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* ── Responsive ──────────────────────── */
 @media (max-width: 360px) {
-  .mode-pill span { display: none; }
-  .mode-pill { padding: 6px 10px; }
-  .header-unit-title { max-width: 100px; }
+  .header-unit-title { font-size: 13px; }
+  .header-logo { font-size: 15px; }
+  .mode-pill { padding: 5px 10px; font-size: 11px; }
+  .feature-pill { padding: 5px 8px; font-size: 11px; }
 }
 
-/* Desktop */
 @media (min-width: 600px) {
-  .header-unit-title { max-width: 220px; }
-  .header-unit-sub { max-width: 220px; }
-  .header-main { padding: 12px 20px 8px; }
-  .header-modes { padding: 0 20px 12px; }
-  .ghost-btn { width: 36px; height: 36px; }
+  .header-row-1 { padding: 12px 20px 8px; }
+  .header-row-2 { padding: 0 20px 12px; gap: 8px; }
+  .header-unit-title { font-size: 15px; }
 }
 
 

@@ -10,44 +10,42 @@
   <div id="app">
     <header class="app-header" id="appHeader">
 
-      <!-- NIVEAU 1 : Brand + Unité + Controls -->
-      <div class="header-main">
-        <div class="header-left">
+      <!-- LIGNE 1 : Brand + Unité + Actions rapides -->
+      <div class="header-row-1">
+        <div class="header-brand-unit"
+          onclick="openUnitSelector()"
+          title="Changer d'unité">
           <span class="header-logo">KoCo</span>
-          <div class="header-unit" id="headerUnitBadge" onclick="openUnitSelector()">
+          <div class="header-unit-info">
             <span class="header-unit-title" id="headerUnitTitle">음식과 영양</span>
             <span class="header-unit-sub" id="headerUnitSubtitle">5A · Food &amp; Nutrition</span>
           </div>
+          <span class="header-chevron">›</span>
         </div>
-        <div class="header-right">
-          <span id="modelIndicator" style="font-size:14px;cursor:default;transition:color 0.3s" title="Modèle actif">⚡</span>
-          <button class="ghost-btn" id="ttsToggle" title="Volume">🔊</button>
-          <button class="ghost-btn" id="moreBtn" title="Plus">···</button>
-          <button class="ghost-btn ghost-btn-stop" id="endSessionBtn" onclick="endSession()" title="Stop">⏹</button>
+
+        <div class="header-actions">
+          <span id="modelIndicator" class="model-indicator" title="Modèle actif">⚡</span>
+          <button class="action-btn" id="ttsToggle" title="Volume">🔊</button>
+          <button class="action-btn action-btn-stop" id="stopBtn" onclick="endSession()" title="Terminer">⏹</button>
         </div>
       </div>
 
-      <!-- NIVEAU 2 : Mode switcher -->
-      <div class="header-modes">
-        <button class="mode-pill active" id="btnSpeak" onclick="setMode('speak')">💬 <span>Tutorat</span></button>
-        <button class="mode-pill" id="btnMission" onclick="setMode('mission')">🎯 <span>Examen</span></button>
-        <button class="mode-pill" id="btnDailyLife" onclick="setMode('daily_life')">🌍 <span>Terrain</span></button>
+      <!-- LIGNE 2 : Tous les modes + features en pills -->
+      <div class="header-row-2" id="headerRow2">
+        <button class="mode-pill active" id="btnSpeak" onclick="setMode('speak')">💬 Tutorat</button>
+        <button class="mode-pill" id="btnMission" onclick="setMode('mission')">🎯 Examen</button>
+        <button class="mode-pill" id="btnDailyLife" onclick="setMode('daily_life')">🌍 Terrain</button>
+        <div class="pill-separator"></div>
+        <button class="feature-pill" onclick="startGMSDrill()" title="GMS Drill quotidien">🎯 Drill</button>
+        <button class="feature-pill" onclick="generateSNUMission()" title="Mission SNU Graduate">🎓 Mission</button>
+        <button class="feature-pill" onclick="fetchKnowledgeSnapshot()" title="Knowledge Snapshot">🧠 Snapshot</button>
+        <button class="feature-pill" id="stagingPill" onclick="openStagingUI()" title="Valider le contenu en staging" style="display:none">📋 Staging</button>
       </div>
 
-      <!-- Warning contexte -->
+      <!-- Warning contextuel -->
       <div id="contextWarning-header" style="display:none"></div>
-    </header>
 
-    <!-- Dropdown menu -->
-    <div class="more-menu" id="moreMenu">
-      <button class="more-item" onclick="generateSNUMission();closeMoreMenu()">🎓 Mission SNU</button>
-      <button class="more-item" id="stagingMenuItem" onclick="openStagingUI();closeMoreMenu()" style="display:none">📋 <span id="stagingLabel">Staging</span></button>
-      <button class="more-item" onclick="fetchKnowledgeSnapshot();closeMoreMenu()">🧠 Knowledge Snapshot</button>
-      <button class="more-item" onclick="openUnitSelector();closeMoreMenu()">📚 Changer d'unité</button>
-      <button class="more-item" onclick="startGMSDrill();closeMoreMenu()">🎯 GMS Drill quotidien</button>
-      <div class="more-divider"></div>
-      <button class="more-item more-item-danger" onclick="endSession();closeMoreMenu()">⏹ Terminer la séance</button>
-    </div>
+    </header>
 
     <div id="sessionSummaryModal" class="summary-modal hidden">
       <div class="summary-overlay"></div>
