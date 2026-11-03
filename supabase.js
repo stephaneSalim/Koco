@@ -68,9 +68,12 @@ function showLoginScreen() {
         options: { shouldCreateUser: false, emailRedirectTo: window.location.origin },
       });
       if (error) {
+        console.warn('[KoCo] signInWithOtp error:', error);
         msg.textContent = /not allowed|signups/i.test(error.message)
-          ? "Cette adresse n'est pas encore invitée sur KoCo."
-          : 'Erreur : ' + error.message;
+          ? `Adresse inconnue : « ${email} » n'est pas dans la liste des invités.`
+          : /rate limit|security purposes|seconds/i.test(error.message)
+            ? 'Trop de tentatives — attends une minute avant de redemander un code.'
+            : 'Erreur : ' + error.message;
         return;
       }
       msg.textContent = '';
