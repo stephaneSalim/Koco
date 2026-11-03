@@ -211,19 +211,6 @@
         <span class="stats-tab-badge" id="statsTabBadge" style="display:none"></span>
       </button>
     </nav>
-
-    <div class="modal-overlay modal-overlay--hidden" aria-hidden="true">
-      <div class="modal" role="dialog" aria-modal="true" aria-label="Anthropic API 키 입력">
-        <div class="modal__title">API 키 입력</div>
-        <div class="modal__description">Claude Claude Sonnet 4 API 키를 입력해주세요. 이 키는 로컬에만 저장됩니다.</div>
-        <div class="modal__warning">키가 없으면 대화 기능을 사용할 수 없습니다.</div>
-        <input class="modal__input" type="text" placeholder="sk-ant-..." aria-label="API 키" />
-        <div class="modal__buttons">
-          <button class="modal__button modal__button--primary" type="button">저장</button>
-          <button class="modal__button modal__button--secondary" type="button">취소</button>
-        </div>
-      </div>
-    </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>

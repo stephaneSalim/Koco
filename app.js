@@ -148,10 +148,6 @@ const elements = {
   navTabs: Array.from(document.querySelectorAll('.nav-tab')),
   fluencyBarFill: document.querySelector('.fluency-bar__fill'),
   fluencyBadge: document.querySelector('.fluency-badge'),
-  apiModal: document.querySelector('.modal-overlay'),
-  apiInput: document.querySelector('.modal__input'),
-  apiSaveButton: document.querySelector('.modal__button--primary'),
-  apiCancelButton: document.querySelector('.modal__button--secondary'),
   alertArea: document.querySelector('.alert-area'),
   typingIndicator: document.querySelector('.typing-indicator'),
   nextQuestionButton: document.querySelector('.next-question-btn'),
@@ -1005,11 +1001,6 @@ async function processUserInput(text) {
       if (result.error === 'AUTH_EXPIRED') {
         showAlert('error', 'Session expirée — reconnecte-toi.');
         setTimeout(() => window.kocoSignOut && window.kocoSignOut(), 1500);
-      } else if (result.error === 'INVALID_API_KEY') {
-        showAlert('error', 'API 키가 잘못되었습니다. 다시 입력해주세요.');
-        showApiModal();
-      } else if (result.error === 'API_KEY_MISSING') {
-        showApiModal();
       } else {
         showAlert('error', `API 요청 실패: ${result.details || result.error}`);
       }
@@ -1102,31 +1093,6 @@ async function processUserInput(text) {
     STATE.isProcessing = false;
     showTypingIndicator(false);
     setMicState('idle');
-  }
-}
-
-// Add API key modal functions
-function showApiModal() {
-  elements.apiModal.classList.remove('modal-overlay--hidden');
-}
-
-function hideApiModal() {
-  elements.apiModal.classList.add('modal-overlay--hidden');
-}
-
-function applyApiKey() {
-  const key = elements.apiInput.value.trim();
-  if (!key) {
-    showAlert('warning', 'API 키를 입력해주세요.');
-    return;
-  }
-
-  const saved = setApiKey(key);
-  if (saved) {
-    hideApiModal();
-    showAlert('success', 'API 키 저장 완료');
-  } else {
-    showAlert('error', 'API 키 저장 실패');
   }
 }
 
@@ -3791,13 +3757,6 @@ function initApp() {
     tab.addEventListener('click', () => updateMode(tab.dataset.mode));
   });
 
-  elements.apiSaveButton.addEventListener('click', applyApiKey);
-  elements.apiCancelButton.addEventListener('click', () => {
-    if (!getApiKey()) {
-      showAlert('error', 'API 키가 필요합니다. 앱을 재실행 후 입력해 주세요.');
-    }
-    hideApiModal();
-  });
 
   const ttsGhost = document.getElementById('ttsToggle');
   if (ttsGhost) ttsGhost.addEventListener('click', toggleTTS);
