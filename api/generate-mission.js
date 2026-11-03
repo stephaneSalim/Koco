@@ -1,19 +1,15 @@
+import { requireUser, consumeQuota } from './_lib/auth.js';
+
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+  const ctx = await requireUser(req, res);
+  if (!ctx) return;
+  const { userId, supabase } = ctx;
+
+  const { unitId } = req.body;
+
+  if (!unitId) {
+    return res.status(400).json({ error: 'unitId requis' });
   }
-
-  const { unitId, userId } = req.body;
-
-  if (!unitId || !userId) {
-    return res.status(400).json({ error: 'unitId et userId requis' });
-  }
-
-  const { createClient } = await import('@supabase/supabase-js');
-  const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_ANON_KEY
-  );
 
   const { data: lesson, error } = await supabase
     .from('lesson_content')
@@ -27,6 +23,8 @@ export default async function handler(req, res) {
       error: '이 단원의 데이터가 없습니다. 먼저 사진을 업로드하세요.'
     });
   }
+
+  if (!(await consumeQuota(ctx, res, 'generate-mission'))) return;
 
   const vocab = lesson.vocabulary || [];
   const structures = lesson.structures || [];

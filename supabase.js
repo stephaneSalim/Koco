@@ -1,19 +1,120 @@
-// KoCo — Supabase DB (sans auth)
+// KoCo — Supabase DB + Auth
+// La clé "publishable" est publique par conception : la sécurité repose sur les
+// règles RLS (user_id = auth.uid()) et sur la vérification du JWT dans /api.
 const SUPABASE_URL = 'https://jxbqlphxsgglrlznpall.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_ZrgImoU54nnrdQnxKboadg_0AFHj1cN';
 
-window.supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+window.supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+});
 
-// User ID local persistant — pas de login nécessaire
-function getOrCreateUserId() {
-  let userId = localStorage.getItem('koco_user_id');
-  if (!userId) {
-    userId = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-    localStorage.setItem('koco_user_id', userId);
+// ── Jeton ajouté automatiquement à chaque appel vers /api ────────────────────
+const _nativeFetch = window.fetch.bind(window);
+window.fetch = async (input, init = {}) => {
+  const url = typeof input === 'string' ? input : input?.url || '';
+  const isKocoApi = /^\/api\//.test(url) ||
+    url.startsWith(window.location.origin + '/api/') ||
+    url.startsWith('http://localhost:3000/api/');
+  if (isKocoApi) {
+    const { data } = await window.supabaseClient.auth.getSession();
+    const token = data?.session?.access_token;
+    if (token) init = { ...init, headers: { ...(init.headers || {}), Authorization: `Bearer ${token}` } };
   }
-  return userId;
+  const response = await _nativeFetch(input, init);
+  if (isKocoApi && response.status === 429) {
+    const body = await response.clone().json().catch(() => ({}));
+    if (body.error === 'daily_quota_reached' && window.showToast) {
+      window.showToast('⏳ Limite quotidienne atteinte pour cette fonction — reviens demain.');
+    }
+  }
+  return response;
+};
+
+// ── Écran de connexion (lien magique ou code à 6 chiffres) ───────────────────
+function showLoginScreen() {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.id = 'kocoLogin';
+    overlay.innerHTML = `
+      <div class="koco-login__card">
+        <div class="koco-login__logo">KoCo</div>
+        <p class="koco-login__subtitle">Connecte-toi avec ton e-mail</p>
+        <form id="kocoLoginForm">
+          <input id="kocoLoginEmail" type="email" required autocomplete="email"
+                 placeholder="ton@email.com" />
+          <button type="submit" id="kocoLoginSend">Recevoir le lien</button>
+        </form>
+        <form id="kocoCodeForm" style="display:none">
+          <p class="koco-login__hint">E-mail envoyé. Clique sur le lien, ou saisis le code reçu :</p>
+          <input id="kocoLoginCode" inputmode="numeric" autocomplete="one-time-code"
+                 maxlength="6" placeholder="123456" />
+          <button type="submit">Valider le code</button>
+        </form>
+        <p id="kocoLoginMsg" class="koco-login__msg"></p>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    const msg = overlay.querySelector('#kocoLoginMsg');
+    const emailInput = overlay.querySelector('#kocoLoginEmail');
+    let email = '';
+
+    overlay.querySelector('#kocoLoginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      email = emailInput.value.trim();
+      msg.textContent = 'Envoi…';
+      const { error } = await window.supabaseClient.auth.signInWithOtp({
+        email,
+        // Bêta fermée : seules les adresses invitées depuis Supabase peuvent se connecter
+        options: { shouldCreateUser: false, emailRedirectTo: window.location.origin },
+      });
+      if (error) {
+        msg.textContent = /not allowed|signups/i.test(error.message)
+          ? "Cette adresse n'est pas encore invitée sur KoCo."
+          : 'Erreur : ' + error.message;
+        return;
+      }
+      msg.textContent = '';
+      overlay.querySelector('#kocoLoginForm').style.display = 'none';
+      overlay.querySelector('#kocoCodeForm').style.display = 'block';
+    });
+
+    overlay.querySelector('#kocoCodeForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const token = overlay.querySelector('#kocoLoginCode').value.trim();
+      msg.textContent = 'Vérification…';
+      const { error } = await window.supabaseClient.auth.verifyOtp({ email, token, type: 'email' });
+      if (error) msg.textContent = 'Code invalide ou expiré.';
+    });
+
+    // Session obtenue (code saisi ou lien cliqué dans un autre onglet)
+    const { data: sub } = window.supabaseClient.auth.onAuthStateChange((event, session) => {
+      if (session) {
+        sub.subscription.unsubscribe();
+        overlay.remove();
+        resolve(session);
+      }
+    });
+  });
 }
-window.kocoUserId = getOrCreateUserId();
+
+window.kocoSignOut = async () => {
+  await window.supabaseClient.auth.signOut();
+  window.location.reload();
+};
+
+// Promesse résolue quand l'utilisateur est connecté. app.js attend cette
+// promesse avant de démarrer : window.kocoUserId est alors l'UUID Supabase.
+window.kocoAuthReady = (async () => {
+  const { data } = await window.supabaseClient.auth.getSession();
+  const session = data?.session || await showLoginScreen();
+  window.kocoUserId = session.user.id;
+  window.kocoUserEmail = session.user.email;
+
+  // Ancien identifiant local (avant l'authentification) — utile pour migrer l'historique
+  const legacyId = localStorage.getItem('koco_user_id');
+  if (legacyId) console.info('[KoCo] Ancien identifiant local :', legacyId);
+  return session;
+})();
 
 async function saveCorrection(originalText, correctedText, explanation) {
   try {

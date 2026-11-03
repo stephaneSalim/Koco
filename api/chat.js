@@ -1,3 +1,9 @@
+import { requireUser, consumeQuota } from './_lib/auth.js';
+
+const ALLOWED_MODES = ['freeChat', 'speak', 'mission', 'daily_life', 'debate'];
+const MAX_SYSTEM_CHARS = 40000;
+const MAX_MESSAGE_CHARS = 4000;
+
 function buildCachedSystem(fullSystem) {
   if (!fullSystem || typeof fullSystem !== 'string') return fullSystem;
 
@@ -32,21 +38,27 @@ function selectModel(mode, userMessageLength, hasRecurringErrors) {
 }
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  const ctx = await requireUser(req, res);
+  if (!ctx) return;
 
-  const { messages, system, mode, userMessageLength, hasRecurringErrors } = req.body;
+  const { messages, system, userMessageLength, hasRecurringErrors } = req.body;
+  const mode = ALLOWED_MODES.includes(req.body.mode) ? req.body.mode : 'freeChat';
+
+  if (typeof system !== 'string' || system.length > MAX_SYSTEM_CHARS) {
+    return res.status(400).json({ error: 'invalid_system' });
+  }
+  const tooLong = (messages || []).some(
+    m => typeof m?.content !== 'string' || m.content.length > MAX_MESSAGE_CHARS
+  );
+  if (!Array.isArray(messages) || !messages.length || tooLong) {
+    return res.status(400).json({ error: 'invalid_messages' });
+  }
+
+  if (!(await consumeQuota(ctx, res, 'chat'))) return;
 
   const selectedModel = selectModel(mode, userMessageLength, hasRecurringErrors);
   const max_tokens = getMaxTokens(mode);
   const windowedMessages = (messages || []).slice(-8);
-
-  // DEBUG: vérifier que system est reçu correctement
-  console.log('[Cache debug] system received:', {
-    type: typeof system,
-    length: system?.length,
-    defined: !!system,
-    preview: system?.slice(0, 80),
-  });
 
   const systemParts = buildCachedSystem(system);
 

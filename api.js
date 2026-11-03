@@ -1105,12 +1105,6 @@ class ConversationManager {
  * @returns {Promise<Object>} { success: boolean, response: string, error: string }
  */
 async function callAnthropicAPI(userMessage, conversationManager, systemPrompt) {
-  const apiKey = getApiKey();
-
-  if (!apiKey) {
-    return { success: false, response: null, error: 'API_KEY_MISSING' };
-  }
-
   const allMessages = conversationManager.getMessages();
   const messages = [...allMessages, { role: 'user', content: userMessage }];
   console.log('Sliding window:', allMessages.length, '→', Math.min(messages.length, 8), 'messages (server)');
@@ -1129,20 +1123,19 @@ async function callAnthropicAPI(userMessage, conversationManager, systemPrompt) 
   try {
     const response = await fetch(API_CONFIG.API_ENDPOINT, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestPayload),
     });
 
     if (!response.ok) {
       const errorData = await response.json();
       if (response.status === 401) {
-        return { success: false, response: null, error: 'INVALID_API_KEY', details: 'API key is invalid or expired' };
+        return { success: false, response: null, error: 'AUTH_EXPIRED', details: 'Session expired' };
       }
       if (response.status === 429) {
+        if (errorData.error === 'daily_quota_reached') {
+          return { success: false, response: null, error: 'RATE_LIMITED', details: 'Limite quotidienne atteinte — reviens demain.' };
+        }
         return { success: false, response: null, error: 'RATE_LIMITED', details: 'Too many requests. Please wait a moment.' };
       }
       return { success: false, response: null, error: 'API_ERROR', details: errorData.error?.message || 'Unknown API error' };

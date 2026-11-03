@@ -1,11 +1,22 @@
-export default async function handler(req, res) {
-  const { images, unitId, userId } = req.body;
+import { requireUser, consumeQuota } from './_lib/auth.js';
 
-  if (!unitId || !userId || !images?.length) {
+export default async function handler(req, res) {
+  const ctx = await requireUser(req, res);
+  if (!ctx) return;
+  const { userId, supabase } = ctx;
+
+  const { images, unitId } = req.body;
+
+  if (!unitId || !images?.length) {
     return res.status(400).json({
-      error: 'unitId, userId et images requis'
+      error: 'unitId et images requis'
     });
   }
+  if (images.length > 3) {
+    return res.status(400).json({ error: 'max 3 pages par appel' });
+  }
+
+  if (!(await consumeQuota(ctx, res, 'ocr-staging'))) return;
 
   const prompt = `Tu es un agent ETL de haute précision spécialisé en coréen académique TOPIK 5-6.
 Analyse ces ${images.length} page(s) de manuel SNU.
@@ -104,11 +115,6 @@ SORTIE : JSON pur sans backticks.
 
   const parsed = parseGeminiOCR(rawText);
 
-  const { createClient } = await import('@supabase/supabase-js');
-  const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_ANON_KEY
-  );
 
   const { data: staging, error } = await supabase
     .from('lesson_content_staging')

@@ -1,13 +1,16 @@
+import { requireUser, consumeQuota } from './_lib/auth.js';
+
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+  const ctx = await requireUser(req, res);
+  if (!ctx) return;
 
   const { missionSheet, unitTitle } = req.body;
 
   if (!missionSheet) {
     return res.status(400).json({ error: 'Missing missionSheet' });
   }
+
+  if (!(await consumeQuota(ctx, res, 'scenarios'))) return;
 
   const prompt = `Tu es un expert pédagogique coréen TOPIK 6.
 

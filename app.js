@@ -1002,7 +1002,10 @@ async function processUserInput(text) {
     const result = await callAnthropicAPI(text, conversationManager, systemPrompt);
 
     if (!result.success) {
-      if (result.error === 'INVALID_API_KEY') {
+      if (result.error === 'AUTH_EXPIRED') {
+        showAlert('error', 'Session expirée — reconnecte-toi.');
+        setTimeout(() => window.kocoSignOut && window.kocoSignOut(), 1500);
+      } else if (result.error === 'INVALID_API_KEY') {
         showAlert('error', 'API 키가 잘못되었습니다. 다시 입력해주세요.');
         showApiModal();
       } else if (result.error === 'API_KEY_MISSING') {
@@ -3838,11 +3841,6 @@ function initApp() {
   }
   startSessionTimers();
 
-  const apiKey = getApiKey();
-  if (!apiKey) {
-    showApiModal();
-  }
-
   updateMode(STATE.mode);
   setMicState('idle');
   updateFluencyIndicator();
@@ -3853,6 +3851,6 @@ function initApp() {
   });
 }
 
-initApp();
+window.kocoAuthReady.then(initApp);
 
 //#endregion

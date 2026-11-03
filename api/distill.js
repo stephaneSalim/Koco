@@ -1,13 +1,16 @@
+import { requireUser, consumeQuota } from './_lib/auth.js';
+
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+  const ctx = await requireUser(req, res);
+  if (!ctx) return;
 
-  const { corrections, unitId, userId } = req.body;
+  const corrections = Array.isArray(req.body.corrections) ? req.body.corrections.slice(0, 10) : [];
 
-  if (!corrections || corrections.length === 0) {
+  if (corrections.length === 0) {
     return res.json({ drills: [] });
   }
+
+  if (!(await consumeQuota(ctx, res, 'distill'))) return;
 
   const prompt = `Tu es un distillateur pédagogique coréen expert.
 Analyse ces corrections de conversation coréenne et génère exactement 3 drills par correction.

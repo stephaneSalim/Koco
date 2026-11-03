@@ -1,11 +1,12 @@
+import { requireUser, consumeQuota } from './_lib/auth.js';
+
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+  const ctx = await requireUser(req, res);
+  if (!ctx) return;
+  const { userId, supabase } = ctx;
 
   const imageData = req.body.image || req.body.imageBase64;
   const { unitId } = req.body;
-  const userId = req.body.userId || req.body.user_id;
 
   console.log('Image received:', {
     hasImage: !!imageData,
@@ -21,18 +22,10 @@ export default async function handler(req, res) {
       received_keys: Object.keys(req.body),
     });
   }
-  if (!userId) {
-    return res.status(400).json({ error: 'userId required' });
-  }
   if (!unitId) {
     return res.status(400).json({ error: "unitId manquant — requis pour l'extraction" });
   }
 
-  const { createClient } = await import('@supabase/supabase-js');
-  const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_ANON_KEY
-  );
 
   // Pre-check : seuil de saturation uniquement (accumulation active en dessous)
   const { data: existing } = await supabase
@@ -58,6 +51,8 @@ export default async function handler(req, res) {
       },
     });
   }
+
+  if (!(await consumeQuota(ctx, res, 'analyze-image'))) return;
 
   console.log('New unit or insufficient data — proceeding with Claude Vision');
   console.log('ETL start | unitId:', unitId, '| image length:', imageData?.length);

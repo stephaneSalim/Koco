@@ -1,7 +1,8 @@
+import { requireUser, consumeQuota } from './_lib/auth.js';
+
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+  const ctx = await requireUser(req, res);
+  if (!ctx) return;
 
   const { text } = req.body;
 
@@ -9,6 +10,8 @@ export default async function handler(req, res) {
     console.log('TTS guard: empty/short text — ElevenLabs not called');
     return res.json({ audio: null, skipped: true });
   }
+
+  if (!(await consumeQuota(ctx, res, 'tts'))) return;
 
   const safeText = text.trim().slice(0, 500);
   console.log('TTS: sending', safeText.length, 'chars to ElevenLabs');

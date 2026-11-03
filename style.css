@@ -3372,3 +3372,32 @@ input:focus-visible {
 @keyframes kcSpin {
   to { transform: rotate(360deg); }
 }
+
+/* ── Écran de connexion (Supabase Auth) ───────────────────────────────────── */
+#kocoLogin {
+  position: fixed; inset: 0; z-index: 10000;
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+.koco-login__card {
+  width: 100%; max-width: 360px;
+  background: #fff; border-radius: 20px; padding: 28px 22px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+  text-align: center;
+}
+.koco-login__logo { font-size: 2rem; font-weight: 800; color: #5468d4; margin-bottom: 4px; }
+.koco-login__subtitle, .koco-login__hint { color: #555; font-size: 0.95rem; margin: 0 0 16px; }
+#kocoLogin input {
+  width: 100%; box-sizing: border-box;
+  padding: 14px; margin-bottom: 12px;
+  border: 1.5px solid #d8dcf5; border-radius: 12px;
+  font-size: 16px; /* évite le zoom auto sur mobile */
+}
+#kocoLogin input:focus { outline: none; border-color: #667eea; }
+#kocoLogin button {
+  width: 100%; padding: 14px; border: 0; border-radius: 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff; font-size: 1rem; font-weight: 600; cursor: pointer;
+}
+.koco-login__msg { min-height: 1.2em; margin: 12px 0 0; color: #c0392b; font-size: 0.9rem; }

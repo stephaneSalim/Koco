@@ -1,11 +1,11 @@
-export default async function handler(req, res) {
-  const { stagingId, userId, approved_vocab, approved_structures, approved_snippets } = req.body;
+import { requireUser } from './_lib/auth.js';
 
-  const { createClient } = await import('@supabase/supabase-js');
-  const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_ANON_KEY
-  );
+export default async function handler(req, res) {
+  const ctx = await requireUser(req, res);
+  if (!ctx) return;
+  const { userId, supabase } = ctx;
+
+  const { stagingId, approved_vocab, approved_structures, approved_snippets } = req.body;
 
   const { data: staging } = await supabase
     .from('lesson_content_staging')
