@@ -1352,10 +1352,11 @@ async function updateContextGuard(unitId) {
 
   const btnMission = document.getElementById('btnMission');
   if (health.status === 'red') {
+    // Plus de blocage : sans photo, la mission utilise le programme du niveau + les phrases GMS de l'unité
     if (btnMission) {
-      btnMission.disabled = true;
-      btnMission.style.opacity = '0.4';
-      btnMission.title = '⚠️ Contenu insuffisant (min. 100 mots requis)';
+      btnMission.disabled = false;
+      btnMission.style.opacity = '1';
+      btnMission.title = 'Mode Examen (programme du niveau)';
     }
     showContextWarning(health);
   } else if (health.status === 'orange') {
@@ -1404,7 +1405,7 @@ function showContextWarning(health) {
     ? 'rgba(229,57,53,0.08)'
     : 'rgba(247,147,30,0.08)';
   warning.textContent = health.status === 'red'
-    ? "⚠️ Contenu insuffisant pour lancer l'IA (min. 100 mots requis). Ajoutez une photo 📸"
+    ? "ℹ️ Pas encore de page photographiée pour cette unité : KoCo utilise le programme du niveau. Une photo 📸 rendra la séance plus précise."
     : '⚠️ Contexte limité. Ajoutez une photo pour améliorer la précision de l\'IA.';
   warning.style.display = 'block';
 }
