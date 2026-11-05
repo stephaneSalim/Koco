@@ -45,9 +45,9 @@ function showLoginScreen() {
           <button type="submit" id="kocoLoginSend">Recevoir le lien</button>
         </form>
         <form id="kocoCodeForm" style="display:none">
-          <p class="koco-login__hint">E-mail envoyé. Clique sur le lien, ou saisis le code reçu :</p>
+          <p class="koco-login__hint">E-mail envoyé. Saisis le code reçu (tous les chiffres) :</p>
           <input id="kocoLoginCode" inputmode="numeric" autocomplete="one-time-code"
-                 maxlength="6" placeholder="123456" />
+                 maxlength="12" placeholder="Code reçu par e-mail" />
           <button type="submit">Valider le code</button>
         </form>
         <p id="kocoLoginMsg" class="koco-login__msg"></p>
@@ -83,7 +83,9 @@ function showLoginScreen() {
 
     overlay.querySelector('#kocoCodeForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const token = overlay.querySelector('#kocoLoginCode').value.trim();
+      // Supabase envoie un code de 6 à 10 chiffres selon la configuration du projet
+      const token = overlay.querySelector('#kocoLoginCode').value.replace(/\D/g, '');
+      if (token.length < 6) { msg.textContent = 'Saisis le code complet reçu par e-mail.'; return; }
       msg.textContent = 'Vérification…';
       const { error } = await window.supabaseClient.auth.verifyOtp({ email, token, type: 'email' });
       if (error) msg.textContent = 'Code invalide ou expiré.';
