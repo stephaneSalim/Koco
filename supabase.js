@@ -358,7 +358,8 @@ async function saveMissionMetrics(score, unitId, missionOverride) {
       user_id: window.kocoUserId,
       unit_id: unitId || '',
       mission_score: score.score_numeric / 10,
-      complexity_index: score.complexity_index / 10,
+      // complexity_index n'existe pas comme colonne : l'insert échouait à chaque mission
+      mlu_detail: { kind: 'mission_score', complexity_index: score.complexity_index / 10 },
       target_grammar_used: score.structures_used,
       forbidden_patterns_used: score.forbidden_detected,
       mission_constraints: JSON.stringify(

@@ -3401,3 +3401,57 @@ input:focus-visible {
   color: #fff; font-size: 1rem; font-weight: 600; cursor: pointer;
 }
 .koco-login__msg { min-height: 1.2em; margin: 12px 0 0; color: #c0392b; font-size: 0.9rem; }
+
+/* ── P3 · Feedback en escalier ───────────────────────────────────────────── */
+.fl-bar {
+  position: sticky; top: 0; z-index: 3;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
+  margin: 0 0 8px; padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.96); border-bottom: 1px solid #e6e8f0;
+  font-size: 0.78em;
+}
+.fl-bar__label { font-weight: 700; color: #667eea; text-transform: uppercase; letter-spacing: .05em; }
+.fl-bar__pills { display: flex; flex-wrap: wrap; gap: 6px; flex: 1 1 auto; min-width: 0; }
+.fl-pill { padding: 2px 9px; border-radius: 999px; border: 1px solid #d6daf0; color: #555; background: #fff; white-space: nowrap; }
+.fl-pill--used { border-color: #4caf50; color: #2e7d32; background: #e8f5e9; }
+.fl-pill--pending { border-color: #ffb300; color: #8a5a00; background: #fff8e1; }
+.fl-bar__mode { display: flex; align-items: center; gap: 4px; color: #777; }
+.fl-bar__mode select { font-size: 1em; padding: 2px 4px; border-radius: 6px; border: 1px solid #d6daf0; }
+
+.fl-fb { margin: 4px 16px 8px; padding: 8px 12px; border-radius: 8px; font-size: 0.84em; line-height: 1.55; }
+.fl-fb--correct, .fl-fb--self_repaired { background: #e8f5e9; color: #2e7d32; border-left: 3px solid #4caf50; }
+.fl-fb--prompt { background: #fff8e1; color: #8a5a00; border-left: 3px solid #ffb300; }
+.fl-fb--recast { background: #f5f6fa; color: #555; border-left: 3px solid #c5cae9; }
+.fl-fb--recast summary { cursor: pointer; font-weight: 600; color: #667eea; }
+.fl-fb--verify { background: #f5f6fa; color: #555; border-left: 3px dashed #9fa8da; }
+.fl-fb--stt { background: #eef2ff; color: #3949ab; border-left: 3px solid #7986cb; }
+.fl-fb--explicit { background: #fff; color: #333; border: 1.5px solid #667eea; box-shadow: 0 2px 8px rgba(102, 126, 234, .12); }
+.fl-rule__head { font-size: .78em; font-weight: 700; color: #667eea; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; }
+.fl-rule__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+.fl-repeat-result { font-size: .9em; color: #555; }
+.fl-diff { word-break: keep-all; overflow-wrap: anywhere; }
+.fl-diff--big { font-size: 1.12em; }
+.fl-del { color: #c62828; text-decoration: line-through; }
+.fl-ins { color: #2e7d32; font-weight: 700; text-decoration: none; background: #e8f5e9; border-radius: 3px; padding: 0 2px; }
+.fl-note { margin-top: 4px; color: #666; font-size: .92em; }
+.fl-chip { display: inline-block; padding: 0 7px; border-radius: 999px; background: #fff; border: 1px solid #ffcc80; font-size: .9em; }
+.fl-btn { border: 0; border-radius: 8px; padding: 7px 12px; font-size: .95em; font-weight: 600; cursor: pointer; color: #fff; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+.fl-btn:disabled { opacity: .55; cursor: default; }
+.fl-btn:focus-visible, .fl-edit:focus-visible { outline: 2px solid #667eea; outline-offset: 2px; }
+
+.fl-edit { margin-left: 6px; border: 0; background: transparent; cursor: pointer; font-size: .9em; opacity: .55; padding: 0 2px; }
+.fl-edit:hover, .fl-edit--hint { opacity: 1; }
+.fl-edit--hint { animation: flPulse 1.2s ease-in-out 3; }
+@keyframes flPulse { 50% { transform: scale(1.35); } }
+@media (prefers-reduced-motion: reduce) { .fl-edit--hint { animation: none; } }
+.fl-edited { opacity: .55; text-decoration: line-through; }
+.fl-edit-form { display: flex; gap: 6px; margin: 6px 0 0; justify-content: flex-end; }
+.fl-edit-input { flex: 1 1 auto; min-width: 0; max-width: 320px; padding: 7px 10px; border: 1.5px solid #c5cae9; border-radius: 8px; font-size: 16px; }
+
+.fl-summary { margin-top: 12px; display: grid; gap: 8px; }
+.fl-summary__title { font-size: .8em; font-weight: 700; color: #666; margin-top: 4px; }
+.fl-table { width: 100%; border-collapse: collapse; font-size: .82em; }
+.fl-table th, .fl-table td { padding: 5px 6px; border-bottom: 1px solid #eee; text-align: center; }
+.fl-table th:first-child, .fl-table td:first-child { text-align: left; }
+.fl-list { margin: 0; padding-left: 18px; font-size: .85em; display: grid; gap: 4px; }
+.fl-summary__meta { font-size: .8em; color: #777; }

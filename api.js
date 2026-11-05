@@ -439,7 +439,54 @@ MISSION : ${(missionSheet.target_grammar || []).slice(0, 3).join(', ')}`);
   return blocks.join('\n');
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// P3 — FEEDBACK EN ESCALIER (docs/P3-feedback-escalier.md)
+// ═══════════════════════════════════════════════════════════════════════════
+const FEEDBACK_LADDER_MODES = ['mission', 'speak'];
+
+const FEEDBACK_LADDER_PROTOCOL = `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PROTOCOLE DE FEEDBACK EN ESCALIER (prioritaire sur toute consigne de blocage ou de correction immédiate ci-dessus)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Tu ne corriges activement QUE les structures cibles listées dans « ÉTAT DU FEEDBACK ».
+
+1. Erreur sur une cible à l'échelon 0 → FEEDBACK: prompt
+   Reste dans ton rôle et pousse l'apprenant à se corriger lui-même : demande de clarification,
+   question qui fait douter, ou indice métalinguistique bref. NE DONNE PAS la forme correcte
+   dans ta réplique. Exemple : « 음… 교수님께 '물어보다'라고 하면 조금 어색하지 않을까요? 다시 말해 볼래요? »
+2. Erreur sur une cible à l'échelon 1 → FEEDBACK: explicit
+   Donne la forme correcte et la règle en une ligne (en français dans NOTE), puis invite à la répéter.
+3. L'apprenant se corrige après une relance → STATUS: correct, valide brièvement et continue.
+4. Erreur hors cible → FEEDBACK: recast
+   Reprends naturellement la forme correcte dans ta réplique, sans interrompre ni commenter.
+5. Doute sur ton jugement (usage régional, variante acceptable, contexte ambigu) → CONFIDENCE: low.
+   Une forme acceptable n'est JAMAIS une erreur. Dans le doute, ne corrige pas.
+6. Le message ressemble à une transcription vocale ratée (mots sans lien, syllabes isolées,
+   phrase incohérente) → STT_SUSPECT: yes, demande poliment de répéter, ne corrige rien.
+7. Ne saute jamais une étape et ne bloque jamais la conversation.
+
+Le bloc [CORRECTION] contient OBLIGATOIREMENT ces 4 lignes supplémentaires :
+TARGET: (la structure cible concernée, recopiée telle quelle, ou NONE)
+FEEDBACK: prompt|explicit|recast|none
+CONFIDENCE: high|low
+STT_SUSPECT: yes|no
+Pour FEEDBACK: prompt, FIXED contient quand même la forme correcte (elle n'est pas montrée à l'apprenant).`;
+
 function generateSystemPrompt(context, mode, gmsSentences, pageContext) {
+  const base = generateSystemPromptBase(context, mode, gmsSentences, pageContext);
+  const ladder = context.feedbackLadder;
+  if (!ladder || !FEEDBACK_LADDER_MODES.includes(mode) || !ladder.targets.length) return base;
+  return `${base}
+${FEEDBACK_LADDER_PROTOCOL}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ÉTAT DU FEEDBACK (mis à jour à chaque tour)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Mode : ${ladder.mode}
+${ladder.promptState()}`;
+}
+
+function generateSystemPromptBase(context, mode, gmsSentences, pageContext) {
   const { unit, vocabulary } = context;
 
   const unitTitle = unit ? `${unit.title} — ${unit.subtitle}` : '자유 주제';
@@ -608,7 +655,7 @@ ${(missionCfg.weak_points || []).map(w =>
   `• "${w.original}" → "${w.fixed}" [${w.interval_days || 1}j]`
 ).join('\n')}
 → Ces erreurs DOIVENT être ciblées en priorité.
-→ Si l'utilisateur reproduit ces erreurs → bloquer immédiatement.
+→ Si l'utilisateur reproduit ces erreurs → appliquer le protocole de feedback en escalier.
 ` : ''}
 
 RÔLE DU PROCTOR :
@@ -639,10 +686,8 @@ ${thesisModeBlock}
 BLOCKING PROTOCOL
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-목표 구조 미사용 시:
-"❌ [구조] 미사용
-다음 표현으로 재구성하세요: [아무개]
-수정 후 계속 진행 가능합니다."
+목표 구조 미사용 시 (aucune erreur, simple absence) :
+"[구조]를 사용해서 다시 말해 볼까요?" — sans donner la phrase toute faite.
 
 금지 표현 감지 시:
 "⚠️ '[표현]' 감지 (${tolerance === 'zero' ? '절대 금지' : '금지'})
@@ -785,7 +830,7 @@ Chaque réponse DOIT suivre exactement ce format. Ne jamais écrire en dehors de
 
 [SPEAK_RESPONSE]
 VALIDATION: (1 phrase courte validant l'idée — en coréen — toujours positive, jamais vide)
-NATIVE_POLISH: (version native améliorée — vide si STATUS=correct)
+NATIVE_POLISH: (version native améliorée — vide si STATUS=correct OU si FEEDBACK=prompt)
 NATIVE_REASON: (explication courte en français — vide si correct)
 TARGET_USED: (structure cible utilisée — vide si aucune)
 PIVOT_QUESTION: (question de relance en coréen — toujours présente)

@@ -254,6 +254,7 @@ async function speakKorean(text) {
 
   const done = () => {
     STATE.isSpeaking = false;
+    window.kocoFeedback?.markTtsEnd();
     stopTtsPulse();
     setMicState('idle');
     _currentTtsAudio = null;
@@ -422,6 +423,7 @@ function addMessage(role, text) {
   wrapper.appendChild(bubble);
   elements.conversation.appendChild(wrapper);
   elements.conversation.scrollTop = elements.conversation.scrollHeight;
+  return wrapper;
 }
 
 function parseCorrection(fullText) {
@@ -444,7 +446,12 @@ function parseCorrection(fullText) {
       fixed: get('FIXED'),
       note: get('NOTE'),
       target_used: get('TARGET_USED') || '',
-      anki_ready: get('ANKI_READY') === 'true'
+      anki_ready: get('ANKI_READY') === 'true',
+      // P3 — feedback en escalier
+      target: get('TARGET'),
+      feedback: get('FEEDBACK').toLowerCase(),
+      confidence: get('CONFIDENCE').toLowerCase(),
+      stt_suspect: get('STT_SUSPECT').toLowerCase()
     }
   };
 }
@@ -530,9 +537,15 @@ function renderFeedbackCard(speakData, correction, sessionTargets) {
   return card;
 }
 
-function addSpeakMessage(rawResponse) {
+function addSpeakMessage(rawResponse, decision) {
   const speakData = parseSpeakResponse(rawResponse);
   const { correction } = parseCorrection(rawResponse);
+
+  // P3 : pendant une relance, la forme correcte ne doit pas être montrée
+  if (speakData && decision && ['prompt', 'stt'].includes(decision.display)) {
+    speakData.native_polish = '';
+    speakData.native_reason = '';
+  }
 
   if (speakData) {
     const card = renderFeedbackCard(
@@ -552,7 +565,8 @@ function addSpeakMessage(rawResponse) {
       .filter(Boolean).join(' ');
     if (!AudioGate.isMuted()) speakKorean(ttsText);
 
-    addCorrectionBlock(correction);
+    if (decision) window.kocoFeedback.renderDecision(decision);
+    else addCorrectionBlock(correction);
 
     if (speakData.target_used) updateSessionTargets(speakData.target_used);
 
@@ -750,6 +764,8 @@ function updateMode(newMode) {
   STATE.usedQuestions[newMode] = STATE.usedQuestions[newMode] || new Set();
   STATE.messageCount = 0;
   STATE.sessionCorrections = [];
+  STATE.savedCorrectionsCount = 0;
+  window.kocoFeedback?.resetLadder();
 
   if (newMode === 'mission') {
     MissionMgr.activate(STATE.unitId);
@@ -798,6 +814,7 @@ async function startRecording() {
 
     _mediaRecorder.start(100);
     _isRecording = true;
+    window.kocoFeedback?.markRecordStart();
     setMicState('listening');
     if (elements.transcription) elements.transcription.textContent = '녹음 중...';
 
@@ -869,13 +886,13 @@ function initPushToTalk() {
     }
     if (!_isRecording) return;
     const text = await stopRecording();
-    if (text && text.trim()) processUserInput(text.trim());
+    if (text && text.trim()) processUserInput(text.trim(), { fromVoice: true });
   });
 
   micBtn.addEventListener('pointerleave', async () => {
     if (_isRecording) {
       const text = await stopRecording();
-      if (text && text.trim()) processUserInput(text.trim());
+      if (text && text.trim()) processUserInput(text.trim(), { fromVoice: true });
     }
   });
 }
@@ -901,7 +918,10 @@ function saveSessionSilent() {
   if (STATE.messageCount < 2) return;
   const durationMin = Math.round((Date.now() - STATE.session.sessionStart) / 60000);
   if (window.saveSession) {
-    saveSession(STATE.unitId, STATE.mode, durationMin, STATE.sessionCorrections);
+    // N'envoyer que les corrections pas encore enregistrées (évite les doublons à chaque auto-save)
+    const fresh = STATE.sessionCorrections.slice(STATE.savedCorrectionsCount || 0);
+    STATE.savedCorrectionsCount = STATE.sessionCorrections.length;
+    saveSession(STATE.unitId, STATE.mode, durationMin, fresh);
     showToast('💾 Sauvegardé');
     console.log('[KoCo] Ghost save — duration:', durationMin, 'min');
   }
@@ -940,11 +960,14 @@ function detectSituationClient(msg) {
   return 'GENERAL';
 }
 
-async function processUserInput(text) {
+async function processUserInput(text, opts = {}) {
   if (!text) return;
 
   // Add user message to the UI
-  addMessage('user', text);
+  const userBubble = addMessage('user', text);
+  if (opts.fromVoice && window.kocoFeedback?.LADDER_MODES.includes(STATE.mode)) {
+    window.kocoFeedback.attachEdit(userBubble, text);
+  }
 
   // Fluency metrics update
   const fluency = analyzeFluency(text);
@@ -986,6 +1009,8 @@ async function processUserInput(text) {
   context.recurringErrors = STATE.recurringErrors || [];
 
   resetInactivityTimer();
+
+  context.feedbackLadder = window.kocoFeedback ? window.kocoFeedback.ensureLadder(context) : null;
 
   const systemPrompt = generateSystemPrompt(context, STATE.mode, STATE.gmsSentences, STATE.pageContext);
   STATE.needsFrenchExplanation = false; // reset after prompt built
@@ -1031,17 +1056,22 @@ async function processUserInput(text) {
     STATE.messageCount += 1;
 
     let correction;
+    // P3 : la machine à états décide de l'affichage et de l'enregistrement
+    const ladder = context.feedbackLadder;
+    const decision = ladder ? ladder.process(parseCorrection(result.response).correction) : null;
+
     if (STATE.mode === 'speak') {
-      const result2 = addSpeakMessage(result.response);
+      const result2 = addSpeakMessage(result.response, decision);
       correction = result2.correction;
     } else {
       const parsed = parseCorrection(result.response);
       correction = parsed.correction;
       addMessage('assistant', parsed.text);
-      addCorrectionBlock(correction);
+      if (decision) window.kocoFeedback.renderDecision(decision);
+      else addCorrectionBlock(correction);
     }
 
-    if (correction && correction.status !== 'correct') {
+    if (correction && correction.status !== 'correct' && (!decision || decision.save)) {
       STATE.sessionCorrections.push(correction);
       if (window.checkAndUpdateRecurrence) {
         window.checkAndUpdateRecurrence(window.kocoUserId, correction.original, correction.fixed);
@@ -2795,7 +2825,11 @@ function openSessionSummary() {
   document.getElementById('summaryCorrections').textContent = corrections.length;
 
   const detailEl = document.getElementById('summaryCorrectionsDetail');
-  if (corrections.length === 0) {
+  const ladderSummary = window.kocoFeedback ? window.kocoFeedback.summaryHtml() : '';
+  if (window.kocoFeedback) window.kocoFeedback.saveMetrics();
+  if (ladderSummary) {
+    detailEl.innerHTML = ladderSummary;
+  } else if (corrections.length === 0) {
     detailEl.innerHTML = '<p style="color:#999;font-size:0.85em;text-align:center;margin:8px 0">Aucune correction cette séance 🎉</p>';
   } else {
     const last5 = corrections.slice(-5);
@@ -2825,7 +2859,9 @@ function openSessionSummary() {
   console.log('Session ending - duration:', durationMin, 'min');
 
   if (window.saveSession) {
-    saveSession(STATE.unitId, STATE.mode, durationMin, corrections);
+    const fresh = corrections.slice(STATE.savedCorrectionsCount || 0);
+    STATE.savedCorrectionsCount = corrections.length;
+    saveSession(STATE.unitId, STATE.mode, durationMin, fresh);
   }
 
   const majorCorrections = corrections.filter(c => c.status !== 'correct');
@@ -2961,6 +2997,8 @@ function resetSession() {
   elements.conversation.innerHTML = '';
   STATE.messageCount = 0;
   STATE.sessionCorrections = [];
+  STATE.savedCorrectionsCount = 0;
+  window.kocoFeedback?.resetLadder();
   STATE.session.sessionStart = Date.now();
   STATE.session.exchangeCount = 0;
   STATE.session.totalUserWords = 0;

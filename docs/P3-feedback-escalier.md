@@ -1,6 +1,6 @@
 # P3 — Feedback en escalier : spécification de conception
 
-Statut : **brouillon à valider par Stéphane** · Branche : `feat/p3-feedback-escalier` (partie de `secure/auth-rls`)
+Statut : **implémenté (v1), à tester** — choix validés : envoi auto + bouton ✏️, escalier en Mission et Speak, mode Normal par défaut · Branche : `feat/p3-feedback-escalier` (partie de `secure/auth-rls`)
 Sources : rapport « Refonte de KoCo » (Lyster & Saito 2010 ; Mackey & Goo 2007 ; Bibauw et al. 2022). Paramètres propres à KoCo, réglables après les tests.
 
 ## 1. Ce qui existe aujourd'hui (constaté dans le code)

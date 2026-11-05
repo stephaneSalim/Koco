@@ -7,8 +7,10 @@ const MAX_MESSAGE_CHARS = 4000;
 function buildCachedSystem(fullSystem) {
   if (!fullSystem || typeof fullSystem !== 'string') return fullSystem;
 
-  const dynamicMarker = 'ERREURS RÉCURRENTES';
-  const dynamicIdx = fullSystem.indexOf(dynamicMarker);
+  // Tout ce qui suit le premier marqueur dynamique change d'un tour à l'autre : non mis en cache
+  const markers = ['ERREURS RÉCURRENTES', 'ÉTAT DU FEEDBACK'];
+  const found = markers.map(m => fullSystem.indexOf(m)).filter(i => i > 0);
+  const dynamicIdx = found.length ? Math.min(...found) : -1;
 
   if (dynamicIdx === -1) {
     return [{ type: 'text', text: fullSystem, cache_control: { type: 'ephemeral' } }];
